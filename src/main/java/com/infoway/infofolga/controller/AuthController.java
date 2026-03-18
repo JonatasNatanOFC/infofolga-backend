@@ -23,18 +23,31 @@ public class AuthController {
     private TokenService tokenService;
 
     @PostMapping("/login")
-    public ResponseEntity login(@RequestBody @Valid LoginRequestDto data) {
+    public ResponseEntity<?> login(@RequestBody @Valid LoginRequestDto data) {
         System.out.println("!!!!!!!!! CHEGUEI NO AUTH CONTROLLER !!!!!!!!!");
-        var usernamePassword = new UsernamePasswordAuthenticationToken(data.matricula(), data.senha());
+
+        var usernamePassword = new UsernamePasswordAuthenticationToken(
+                data.matricula(),
+                data.senha());
+
         try {
             var auth = this.authenticationManager.authenticate(usernamePassword);
             var funcionario = (Funcionario) auth.getPrincipal();
             var token = tokenService.gerarToken(funcionario);
-            return ResponseEntity.ok(new LoginResponseDto(token, funcionario.getNome(), funcionario.getRole()));
+
+            return ResponseEntity.ok(
+                    new LoginResponseDto(
+                            token,
+                            funcionario.getNome(),
+                            funcionario.getRole()));
+
         } catch (Exception e) {
             System.err.println("==== ERRO INESPERADO NO LOGIN ====");
             e.printStackTrace();
-            return ResponseEntity.status(500).body("Erro interno no servidor: " + e.getMessage());
+
+            return ResponseEntity
+                    .status(500)
+                    .body("Erro interno no servidor: " + e.getMessage());
         }
     }
 }
