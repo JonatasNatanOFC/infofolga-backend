@@ -24,7 +24,6 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody @Valid LoginRequestDto data) {
-        System.out.println("!!!!!!!!! CHEGUEI NO AUTH CONTROLLER !!!!!!!!!");
 
         var usernamePassword = new UsernamePasswordAuthenticationToken(
                 data.matricula(),
