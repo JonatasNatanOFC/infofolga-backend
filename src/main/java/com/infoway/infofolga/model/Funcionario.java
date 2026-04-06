@@ -27,7 +27,7 @@ public class Funcionario implements UserDetails {
     private String senha;
     private String cpf;
     @Column(columnDefinition = "TEXT")
-    private String  foto;
+    private String foto;
 
     @Column(columnDefinition = "VARCHAR(20) DEFAULT 'ativo'")
     private String status = "ativo";

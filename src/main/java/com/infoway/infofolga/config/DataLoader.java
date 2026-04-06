@@ -23,14 +23,22 @@ public class DataLoader implements CommandLineRunner {
             System.out.println("Carregando dados iniciais para teste...");
 
             Funcionario gerente = new Funcionario();
-            gerente.setNome("INFOWAY");
-            gerente.setMatricula("0001");
+            gerente.setNome("Natan Gerente");
+            gerente.setMatricula("1001");
             gerente.setCargo("Gerente de TI");
             gerente.setSetor("Tecnologia");
             gerente.setSenha(passwordEncoder.encode("admin123"));
-            gerente.setRole(Role.ROLE_GERENTE);
-            gerente.setCpf("70252517474");
+            gerente.setRole(Role.ROLE_GERENTE); // <-- USAMOS setRole
             funcionarioRepository.save(gerente);
+
+            Funcionario funcionario = new Funcionario();
+            funcionario.setNome("Ana Funcionaria");
+            funcionario.setMatricula("2002");
+            funcionario.setCargo("Desenvolvedora");
+            funcionario.setSetor("Tecnologia");
+            funcionario.setSenha(passwordEncoder.encode("user123"));
+            funcionario.setRole(Role.ROLE_FUNCIONARIO); // <-- USAMOS setRole
+            funcionarioRepository.save(funcionario);
 
             System.out.println("Dados iniciais carregados.");
         }
