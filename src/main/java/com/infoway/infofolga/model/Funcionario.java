@@ -25,11 +25,12 @@ public class Funcionario implements UserDetails {
     private String cargo;
     private String setor;
     private String senha;
+    @Column(unique = true)
     private String cpf;
     @Column(columnDefinition = "TEXT")
     private String foto;
 
-    @Column(columnDefinition = "VARCHAR(20) DEFAULT 'ativo'")
+    @Column(length = 20)
     private String status = "ativo";
 
     @Enumerated(EnumType.STRING)
@@ -50,6 +51,6 @@ public class Funcionario implements UserDetails {
     public String getPassword() { return this.senha; }
 
     @Override
-    public String getUsername() { return this.matricula; }
+    public String getUsername() { return this.cpf; }
 
 }

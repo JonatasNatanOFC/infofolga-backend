@@ -21,7 +21,7 @@ public class TokenService {
             Algorithm algorithm = Algorithm.HMAC256(secret);
             return JWT.create()
                     .withIssuer("infofolga-api")
-                    .withSubject(funcionario.getMatricula())
+                    .withSubject(funcionario.getCpf())
                     .withClaim("nome", funcionario.getNome())
                     .withExpiresAt(getExpirationDate())
                     .sign(algorithm);

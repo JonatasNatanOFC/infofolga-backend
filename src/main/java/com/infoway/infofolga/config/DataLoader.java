@@ -27,8 +27,9 @@ public class DataLoader implements CommandLineRunner {
             gerente.setMatricula("1001");
             gerente.setCargo("Gerente de TI");
             gerente.setSetor("Tecnologia");
+            gerente.setCpf("11122233344"); // <--- CPF ADICIONADO AQUI!
             gerente.setSenha(passwordEncoder.encode("admin123"));
-            gerente.setRole(Role.ROLE_GERENTE); // <-- USAMOS setRole
+            gerente.setRole(Role.ROLE_GERENTE);
             funcionarioRepository.save(gerente);
 
             Funcionario funcionario = new Funcionario();
@@ -36,8 +37,9 @@ public class DataLoader implements CommandLineRunner {
             funcionario.setMatricula("2002");
             funcionario.setCargo("Desenvolvedora");
             funcionario.setSetor("Tecnologia");
+            funcionario.setCpf("55566677788"); // <--- CPF ADICIONADO AQUI!
             funcionario.setSenha(passwordEncoder.encode("user123"));
-            funcionario.setRole(Role.ROLE_FUNCIONARIO); // <-- USAMOS setRole
+            funcionario.setRole(Role.ROLE_FUNCIONARIO);
             funcionarioRepository.save(funcionario);
 
             System.out.println("Dados iniciais carregados.");
