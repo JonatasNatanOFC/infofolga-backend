@@ -35,6 +35,12 @@ public class SecurityFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain) throws ServletException, IOException {
 
         try {
+            // Preflight CORS requests (OPTIONS) must pass through without token validation
+            if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             String token = recoverToken(request);
             String path = request.getRequestURI();
 
@@ -46,10 +52,7 @@ public class SecurityFilter extends OncePerRequestFilter {
 
                 if (subject == null) {
                     System.err.printf("[SecurityFilter] PATH=%s | Token inválido ou expirado%n", path);
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setContentType("application/json");
-                    response.setCharacterEncoding("UTF-8");
-                    response.getWriter().write("{\"erro\":\"Token inválido ou expirado\"}");
+                    writeErrorResponse(request, response, HttpServletResponse.SC_UNAUTHORIZED, "Token inválido ou expirado");
                     return;
                 }
 
@@ -58,10 +61,7 @@ public class SecurityFilter extends OncePerRequestFilter {
 
                 if (funcionarioOpt.isEmpty()) {
                     System.err.printf("[SecurityFilter] PATH=%s | Usuário não encontrado para CPF=%s%n", path, subject);
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setContentType("application/json");
-                    response.setCharacterEncoding("UTF-8");
-                    response.getWriter().write("{\"erro\":\"Usuário do token não encontrado\"}");
+                    writeErrorResponse(request, response, HttpServletResponse.SC_UNAUTHORIZED, "Usuário do token não encontrado");
                     return;
                 }
 
@@ -86,10 +86,7 @@ public class SecurityFilter extends OncePerRequestFilter {
 
         } catch (Exception e) {
             System.err.println("[SecurityFilter] Erro ao validar token: " + e.getMessage());
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.setCharacterEncoding("UTF-8");
-            response.getWriter().write("{\"erro\":\"Falha na autenticação\"}");
+            writeErrorResponse(request, response, HttpServletResponse.SC_UNAUTHORIZED, "Falha na autenticação");
         }
     }
 
@@ -101,5 +98,24 @@ public class SecurityFilter extends OncePerRequestFilter {
         }
 
         return authHeader.substring(7);
+    }
+
+    /**
+     * Writes an error response with CORS headers so that browsers can read the body
+     * even when the request is blocked at the security filter level.
+     */
+    private void writeErrorResponse(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    int status,
+                                    String mensagem) throws IOException {
+        String origin = request.getHeader("Origin");
+        if (origin != null) {
+            response.setHeader("Access-Control-Allow-Origin", origin);
+            response.setHeader("Access-Control-Allow-Credentials", "true");
+        }
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write("{\"erro\":\"" + mensagem + "\"}");
     }
 }

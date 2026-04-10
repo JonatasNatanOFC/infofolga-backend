@@ -5,9 +5,11 @@ import com.infoway.infofolga.dto.LoginResponseDto;
 import com.infoway.infofolga.model.Funcionario;
 import com.infoway.infofolga.service.TokenService;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -17,6 +19,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
+
     private final AuthenticationManager authenticationManager;
     private final TokenService tokenService;
 
@@ -33,20 +38,22 @@ public class AuthController {
                 data.senha());
 
         try {
+            log.info("[AuthController] Tentativa de login para CPF: {}", data.cpf());
             var auth = this.authenticationManager.authenticate(usernamePassword);
             var funcionario = (Funcionario) auth.getPrincipal();
             var token = tokenService.gerarToken(funcionario);
 
+            log.info("[AuthController] Login OK para CPF: {} | ROLE: {}", data.cpf(), funcionario.getRole());
             return ResponseEntity.ok(
                     new LoginResponseDto(
                             token,
                             funcionario.getNome(),
                             funcionario.getRole()));
-        } catch (BadCredentialsException e) {
-            return ResponseEntity.status(401).body("Usuário ou senha inválidos.");
+        } catch (AuthenticationException e) {
+            log.warn("[AuthController] Auth falhou ({}) para CPF: {}", e.getClass().getSimpleName(), data.cpf());
+            return ResponseEntity.status(403).body("Usuário ou senha inválidos.");
         } catch (Exception e) {
-            System.err.println("==== ERRO REAL DE SERVIDOR ====");
-            e.printStackTrace();
+            log.error("[AuthController] Erro inesperado no login", e);
             return ResponseEntity.status(500).body("Erro interno: " + e.getMessage());
         }
     }
