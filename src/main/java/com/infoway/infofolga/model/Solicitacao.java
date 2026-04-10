@@ -30,6 +30,17 @@ public class Solicitacao {
     private LocalDate dataFim;
     private String motivo;
 
-    private LocalDateTime criadoEm = LocalDateTime.now();
-    private LocalDateTime atualizadoEm = LocalDateTime.now();
+    private LocalDateTime criadoEm;
+    private LocalDateTime atualizadoEm;
+
+    @PrePersist
+    protected void onCreate() {
+        this.criadoEm = LocalDateTime.now();
+        this.atualizadoEm = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.atualizadoEm = LocalDateTime.now();
+    }
 }

@@ -11,7 +11,9 @@ import java.util.List;
 import java.util.Optional;
 
 public interface FuncionarioRepository extends JpaRepository<Funcionario, Long> {
+
     UserDetails findByCpf(String cpf);
+
     List<Funcionario> findAllByRole(Role role);
 
     @Query("SELECT f FROM Funcionario f WHERE f.cpf = :cpf OR f.cpf = :cpfFormatado")

@@ -43,7 +43,7 @@ public class AuthController {
                             funcionario.getNome(),
                             funcionario.getRole()));
         } catch (BadCredentialsException e) {
-            return ResponseEntity.status(403).body("Usuário ou senha inválidos.");
+            return ResponseEntity.status(401).body("Usuário ou senha inválidos.");
         } catch (Exception e) {
             System.err.println("==== ERRO REAL DE SERVIDOR ====");
             e.printStackTrace();

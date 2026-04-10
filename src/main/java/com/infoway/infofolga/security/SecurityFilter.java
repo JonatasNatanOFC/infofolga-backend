@@ -1,7 +1,9 @@
 package com.infoway.infofolga.security;
 
+import com.infoway.infofolga.model.Funcionario;
 import com.infoway.infofolga.repository.FuncionarioRepository;
 import com.infoway.infofolga.service.TokenService;
+import com.infoway.infofolga.util.CpfUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,17 +11,16 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Optional;
 
 @Component
 public class SecurityFilter extends OncePerRequestFilter {
 
     private final TokenService tokenService;
-
     private final FuncionarioRepository funcionarioRepository;
 
     public SecurityFilter(TokenService tokenService, FuncionarioRepository funcionarioRepository) {
@@ -34,37 +35,71 @@ public class SecurityFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain) throws ServletException, IOException {
 
         try {
-            var token = recoverToken(request);
+            String token = recoverToken(request);
+            String path = request.getRequestURI();
+
+            System.out.println("\n[DEBUG] REQUEST PATH: " + path);
+            System.out.println("[DEBUG] AUTH HEADER: " + request.getHeader("Authorization"));
 
             if (token != null) {
-                var subject = tokenService.validarToken(token);
-                UserDetails user = funcionarioRepository.findByCpf(subject);
+                String subject = tokenService.validarToken(token);
 
-                if (user != null) {
-                    System.out.println("Authorities do usuario: " + user.getAuthorities());
-                    var authentication = new UsernamePasswordAuthenticationToken(
-                            user,
-                            null,
-                            user.getAuthorities());
-
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                if (subject == null) {
+                    System.err.printf("[SecurityFilter] PATH=%s | Token inválido ou expirado%n", path);
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.setCharacterEncoding("UTF-8");
+                    response.getWriter().write("{\"erro\":\"Token inválido ou expirado\"}");
+                    return;
                 }
+
+                String cpfFormatado = CpfUtils.formatar(subject);
+                Optional<Funcionario> funcionarioOpt = funcionarioRepository.findByCpfExato(subject, cpfFormatado);
+
+                if (funcionarioOpt.isEmpty()) {
+                    System.err.printf("[SecurityFilter] PATH=%s | Usuário não encontrado para CPF=%s%n", path, subject);
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.setCharacterEncoding("UTF-8");
+                    response.getWriter().write("{\"erro\":\"Usuário do token não encontrado\"}");
+                    return;
+                }
+
+                Funcionario user = funcionarioOpt.get();
+
+                System.out.printf(
+                        "[SecurityFilter] PATH=%s | CPF=%s | ROLE=%s | AUTHORITIES=%s%n",
+                        path,
+                        user.getCpf(),
+                        user.getRole(),
+                        user.getAuthorities());
+
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(user, null,
+                        user.getAuthorities());
+
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            } else {
+                System.err.printf("[SecurityFilter] PATH=%s | Token ausente%n", path);
             }
 
-        } catch (Exception e) {
-            System.err.println("Erro ao validar token: " + e.getMessage());
-        }
+            filterChain.doFilter(request, response);
 
-        filterChain.doFilter(request, response);
+        } catch (Exception e) {
+            System.err.println("[SecurityFilter] Erro ao validar token: " + e.getMessage());
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+            response.getWriter().write("{\"erro\":\"Falha na autenticação\"}");
+        }
     }
 
     private String recoverToken(HttpServletRequest request) {
-        var authHeader = request.getHeader("Authorization");
+        String authHeader = request.getHeader("Authorization");
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return null;
         }
 
-        return authHeader.replace("Bearer ", "");
+        return authHeader.substring(7);
     }
 }
