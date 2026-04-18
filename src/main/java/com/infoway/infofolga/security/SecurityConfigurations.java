@@ -10,15 +10,11 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -31,18 +27,24 @@ public class SecurityConfigurations {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
-        return httpSecurity
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        return http
                 .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(authorize -> authorize
+                .cors(AbstractHttpConfigurer::disable)
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+                .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/error").permitAll()
-                        .requestMatchers("/api/gerencia/**").hasRole("GERENTE")
-                        .anyRequest().authenticated())
-                // Impede que o Spring Security reescreva respostas 401/403 vindas dos controllers
+
+                        .requestMatchers("/api/gerencia/**").hasAuthority("ROLE_GERENTE")
+                        .requestMatchers("/api/funcionarios/**").authenticated()
+                        .requestMatchers("/api/usuarios/**").authenticated()
+
+                        .anyRequest().permitAll()
+                )
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -51,6 +53,21 @@ public class SecurityConfigurations {
                             response.getWriter().write("{\"erro\":\"Não autenticado\"}");
                         })
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            Authentication authentication =
+                                    org.springframework.security.core.context.SecurityContextHolder
+                                            .getContext()
+                                            .getAuthentication();
+
+                            System.out.println("\n=== ACCESS DENIED ===");
+                            System.out.println("PATH: " + request.getRequestURI());
+                            System.out.println("AUTH: " + authentication);
+                            if (authentication != null) {
+                                System.out.println("AUTHORITIES: " + authentication.getAuthorities());
+                                System.out.println("PRINCIPAL: " + authentication.getPrincipal());
+                                System.out.println("IS AUTHENTICATED: " + authentication.isAuthenticated());
+                            }
+                            System.out.println("====================\n");
+
                             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                             response.setContentType("application/json");
                             response.setCharacterEncoding("UTF-8");
@@ -69,18 +86,5 @@ public class SecurityConfigurations {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
-    }
-
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(false);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
     }
 }

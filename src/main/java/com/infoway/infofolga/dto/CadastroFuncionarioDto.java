@@ -1,6 +1,9 @@
 package com.infoway.infofolga.dto;
 
+import jakarta.validation.constraints.NotBlank;
+
 public record CadastroFuncionarioDto(
+        @NotBlank(message = "Nome é obrigatório")
         String nome,
         String matricula,
         String cargo,

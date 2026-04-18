@@ -1,3 +1,11 @@
 package com.infoway.infofolga.dto;
 
-public record LoginRequestDto(String cpf, String senha) {}
+import jakarta.validation.constraints.NotBlank;
+
+public record LoginRequestDto(
+        @NotBlank(message = "CPF é obrigatório")
+        String cpf,
+
+        @NotBlank(message = "Senha é obrigatória")
+        String senha
+) {}

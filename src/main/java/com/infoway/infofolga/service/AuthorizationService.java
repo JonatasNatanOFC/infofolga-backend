@@ -1,6 +1,7 @@
 package com.infoway.infofolga.service;
 
 import com.infoway.infofolga.repository.FuncionarioRepository;
+import com.infoway.infofolga.util.CpfUtils;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -17,10 +18,10 @@ public class AuthorizationService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        UserDetails user = funcionarioRepository.findByCpf(username);
-        if (user == null) {
-            throw new UsernameNotFoundException("Usuário não encontrado com o CPF: " + username);
-        }
-        return user;
+        String cpfLimpo = CpfUtils.limpar(username);
+
+        return funcionarioRepository.findByCpf(cpfLimpo)
+                .orElseThrow(() ->
+                        new UsernameNotFoundException("Usuário não encontrado com o CPF informado."));
     }
 }

@@ -3,18 +3,20 @@ package com.infoway.infofolga.security;
 import com.infoway.infofolga.model.Funcionario;
 import com.infoway.infofolga.repository.FuncionarioRepository;
 import com.infoway.infofolga.service.TokenService;
-import com.infoway.infofolga.util.CpfUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -30,67 +32,77 @@ public class SecurityFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(
-            @NonNull HttpServletRequest request,
-            @NonNull HttpServletResponse response,
-            @NonNull FilterChain filterChain) throws ServletException, IOException {
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
 
         try {
-            // Preflight CORS requests (OPTIONS) must pass through without token validation
-            if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
-                filterChain.doFilter(request, response);
-                return;
+            String token = recuperarToken(request);
+
+            System.out.println("\n=== SECURITY FILTER ===");
+            System.out.println("PATH: " + request.getRequestURI());
+            System.out.println("TOKEN PRESENTE: " + (token != null));
+
+            if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                String cpfLimpo = tokenService.validarToken(token);
+                System.out.println("CPF TOKEN: " + cpfLimpo);
+
+                if (cpfLimpo != null && !cpfLimpo.isBlank()) {
+                    Optional<Funcionario> funcionarioOpt = funcionarioRepository.findByCpf(cpfLimpo);
+
+                    if (funcionarioOpt.isPresent()) {
+                        Funcionario funcionario = funcionarioOpt.get();
+
+                        List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+
+                        if (funcionario.getRole() != null) {
+                            authorities.add(new SimpleGrantedAuthority(funcionario.getRole().name()));
+
+                            if ("ROLE_GERENTE".equals(funcionario.getRole().name())) {
+                                authorities.add(new SimpleGrantedAuthority("ROLE_FUNCIONARIO"));
+                            }
+                        }
+
+                        UsernamePasswordAuthenticationToken authentication =
+                                new UsernamePasswordAuthenticationToken(
+                                        funcionario,
+                                        null,
+                                        authorities
+                                );
+
+                        authentication.setDetails(
+                                new WebAuthenticationDetailsSource().buildDetails(request)
+                        );
+
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                        System.out.println("USUARIO: " + funcionario.getNome());
+                        System.out.println("CPF BANCO: " + funcionario.getCpf());
+                        System.out.println("ROLE BANCO: " + funcionario.getRole());
+                        System.out.println("AUTHORITIES SETADAS: " + authorities);
+                        System.out.println("STATUS: " + funcionario.getStatus());
+                    } else {
+                        System.out.println("USUARIO NAO ENCONTRADO NO BANCO");
+                        SecurityContextHolder.clearContext();
+                    }
+                } else {
+                    System.out.println("TOKEN INVALIDO OU EXPIRADO");
+                    SecurityContextHolder.clearContext();
+                }
             }
 
-            String token = recoverToken(request);
-            String path = request.getRequestURI();
-
-            System.out.println("\n[DEBUG] REQUEST PATH: " + path);
-            System.out.println("[DEBUG] AUTH HEADER: " + request.getHeader("Authorization"));
-
-            if (token != null) {
-                String subject = tokenService.validarToken(token);
-
-                if (subject == null) {
-                    System.err.printf("[SecurityFilter] PATH=%s | Token inválido ou expirado%n", path);
-                    writeErrorResponse(request, response, HttpServletResponse.SC_UNAUTHORIZED, "Token inválido ou expirado");
-                    return;
-                }
-
-                String cpfFormatado = CpfUtils.formatar(subject);
-                Optional<Funcionario> funcionarioOpt = funcionarioRepository.findByCpfExato(subject, cpfFormatado);
-
-                if (funcionarioOpt.isEmpty()) {
-                    System.err.printf("[SecurityFilter] PATH=%s | Usuário não encontrado para CPF=%s%n", path, subject);
-                    writeErrorResponse(request, response, HttpServletResponse.SC_UNAUTHORIZED, "Usuário do token não encontrado");
-                    return;
-                }
-
-                Funcionario user = funcionarioOpt.get();
-
-                System.out.printf(
-                        "[SecurityFilter] PATH=%s | CPF=%s | ROLE=%s | AUTHORITIES=%s%n",
-                        path,
-                        user.getCpf(),
-                        user.getRole(),
-                        user.getAuthorities());
-
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(user, null,
-                        user.getAuthorities());
-
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-            } else {
-                System.err.printf("[SecurityFilter] PATH=%s | Token ausente%n", path);
-            }
-
-            filterChain.doFilter(request, response);
-
+            System.out.println("=======================\n");
         } catch (Exception e) {
-            System.err.println("[SecurityFilter] Erro ao validar token: " + e.getMessage());
-            writeErrorResponse(request, response, HttpServletResponse.SC_UNAUTHORIZED, "Falha na autenticação");
+            System.out.println("ERRO NO SECURITY FILTER: " + e.getMessage());
+            e.printStackTrace();
+            SecurityContextHolder.clearContext();
         }
+
+        filterChain.doFilter(request, response);
     }
 
-    private String recoverToken(HttpServletRequest request) {
+    private String recuperarToken(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -98,24 +110,5 @@ public class SecurityFilter extends OncePerRequestFilter {
         }
 
         return authHeader.substring(7);
-    }
-
-    /**
-     * Writes an error response with CORS headers so that browsers can read the body
-     * even when the request is blocked at the security filter level.
-     */
-    private void writeErrorResponse(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    int status,
-                                    String mensagem) throws IOException {
-        String origin = request.getHeader("Origin");
-        if (origin != null) {
-            response.setHeader("Access-Control-Allow-Origin", origin);
-            response.setHeader("Access-Control-Allow-Credentials", "true");
-        }
-        response.setStatus(status);
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
-        response.getWriter().write("{\"erro\":\"" + mensagem + "\"}");
     }
 }

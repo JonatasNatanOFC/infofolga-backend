@@ -1,0 +1,54 @@
+package com.infoway.infofolga.service;
+
+import com.infoway.infofolga.dto.SolicitacaoDto;
+import com.infoway.infofolga.model.Solicitacao;
+import com.infoway.infofolga.model.StatusSolicitation;
+import com.infoway.infofolga.repository.FuncionarioRepository;
+import com.infoway.infofolga.repository.SolicitacaoRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+
+@Service
+public class GerenciaSolicitacaoService {
+
+    private final SolicitacaoRepository solicitacaoRepository;
+    private final FuncionarioRepository funcionarioRepository;
+
+    public GerenciaSolicitacaoService(SolicitacaoRepository solicitacaoRepository,
+                                      FuncionarioRepository funcionarioRepository) {
+        this.solicitacaoRepository = solicitacaoRepository;
+        this.funcionarioRepository = funcionarioRepository;
+    }
+
+    public List<SolicitacaoDto> listarSolicitacoes() {
+        return solicitacaoRepository.findAll().stream().map(SolicitacaoDto::new).toList();
+    }
+
+    public List<SolicitacaoDto> listarPorFuncionario(Long funcionarioId) {
+        if (!funcionarioRepository.existsById(funcionarioId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Funcionário não encontrado.");
+        }
+        return solicitacaoRepository.findByFuncionarioId(funcionarioId)
+                .stream()
+                .map(SolicitacaoDto::new)
+                .toList();
+    }
+
+    public SolicitacaoDto atualizarStatus(Long id, StatusSolicitation status) {
+        Solicitacao solicitacao = solicitacaoRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitação não encontrada."));
+
+        solicitacao.setStatus(status);
+        return new SolicitacaoDto(solicitacaoRepository.save(solicitacao));
+    }
+
+    public void removerSolicitacao(Long id) {
+        if (!solicitacaoRepository.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitação não encontrada.");
+        }
+        solicitacaoRepository.deleteById(id);
+    }
+}
