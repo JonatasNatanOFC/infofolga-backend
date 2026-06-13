@@ -5,7 +5,9 @@ import com.infoway.infofolga.model.Funcionario;
 import com.infoway.infofolga.model.Solicitacao;
 import com.infoway.infofolga.model.StatusSolicitation;
 import com.infoway.infofolga.repository.SolicitacaoRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -34,9 +36,9 @@ public class FuncionarioService {
     }
 
     public Funcionario getFuncionarioAutenticado(Object principal) {
-        if (!(principal instanceof Funcionario funcionario)) {
-            throw new IllegalStateException("Usuário autenticado inválido.");
+        if (principal instanceof Funcionario funcionario) {
+            return funcionario;
         }
-        return funcionario;
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Você não tem acesso a esta função de funcionário.");
     }
 }

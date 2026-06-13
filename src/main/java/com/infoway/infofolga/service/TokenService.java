@@ -6,6 +6,7 @@ import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.infoway.infofolga.model.Funcionario;
 import com.infoway.infofolga.util.CpfUtils;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -45,6 +46,21 @@ public class TokenService {
             return CpfUtils.limpar(subject);
         } catch (JWTVerificationException e) {
             return null;
+        }
+    }
+
+    public String gerarToken(UserDetails usuario) {
+        try {
+            Algorithm algorithm = Algorithm.HMAC256(secret);
+            String cpfLimpo = CpfUtils.limpar(usuario.getUsername());
+
+            return JWT.create()
+                    .withIssuer("infofolga-api")
+                    .withSubject(cpfLimpo)
+                    .withExpiresAt(Instant.now().plus(2, ChronoUnit.HOURS))
+                    .sign(algorithm);
+        } catch (Exception e) {
+            throw new RuntimeException("Erro ao gerar token", e);
         }
     }
 }

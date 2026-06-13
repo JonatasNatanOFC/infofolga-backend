@@ -27,15 +27,7 @@ public class GerenciaFuncionarioService {
     }
 
     public List<UsuarioDto> listarFuncionarios() {
-        List<Funcionario> funcionarios = funcionarioRepository.findAllByRole(Role.ROLE_FUNCIONARIO);
-
-        System.out.println("=== SERVICE listarFuncionarios ===");
-        for (Funcionario f : funcionarios) {
-            System.out.println(
-                    f.getId() + " | " + f.getNome() + " | " + f.getCpf() + " | " + f.getRole()
-            );
-        }
-        System.out.println("=================================");
+        List<Funcionario> funcionarios = funcionarioRepository.findAll();
 
         return funcionarios.stream()
                 .map(UsuarioDto::new)
@@ -71,7 +63,6 @@ public class GerenciaFuncionarioService {
         try {
             Funcionario funcionario = new Funcionario();
             atualizarDadosFuncionario(funcionario, dto);
-            funcionario.setRole(Role.ROLE_FUNCIONARIO);
             funcionario.setStatus("ativo");
 
             Funcionario salvo = funcionarioRepository.save(funcionario);

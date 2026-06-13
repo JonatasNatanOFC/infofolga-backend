@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface SolicitacaoRepository extends JpaRepository<Solicitacao, Long> {
+
     long countByStatus(StatusSolicitation status);
 
     @Query("SELECT COUNT(s) FROM Solicitacao s WHERE s.status = :status AND s.atualizadoEm >= :desde")
@@ -21,6 +22,8 @@ public interface SolicitacaoRepository extends JpaRepository<Solicitacao, Long> 
     List<Solicitacao> findByFuncionarioId(Long funcionarioId);
 
     List<Solicitacao> findByFuncionarioIdOrderByCriadoEmDesc(Long funcionarioId);
+
+    List<Solicitacao> findByStatusOrderByCriadoEmDesc(StatusSolicitation status);
 
     long countByFuncionarioIdAndStatus(Long funcionarioId, StatusSolicitation status);
 

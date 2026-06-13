@@ -1,8 +1,10 @@
 package com.infoway.infofolga.controller;
 
+import com.infoway.infofolga.dto.RejeitarSolicitacaoDto;
 import com.infoway.infofolga.dto.SolicitacaoDto;
 import com.infoway.infofolga.model.StatusSolicitation;
 import com.infoway.infofolga.service.GerenciaSolicitacaoService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,15 +25,31 @@ public class GerenciaSolicitacaoController {
         return ResponseEntity.ok(gerenciaSolicitacaoService.listarSolicitacoes());
     }
 
+    @GetMapping("/solicitacoes/status")
+    public ResponseEntity<List<SolicitacaoDto>> getSolicitacoesPorStatus(
+            @RequestParam StatusSolicitation status
+    ) {
+        return ResponseEntity.ok(gerenciaSolicitacaoService.listarPorStatus(status));
+    }
+
     @GetMapping("/solicitacoes/funcionario/{funcionarioId}")
     public ResponseEntity<List<SolicitacaoDto>> getSolicitacoesByFuncionario(@PathVariable Long funcionarioId) {
         return ResponseEntity.ok(gerenciaSolicitacaoService.listarPorFuncionario(funcionarioId));
     }
 
-    @PatchMapping("/solicitacoes/{id}/status")
-    public ResponseEntity<SolicitacaoDto> atualizarStatusSolicitacao(@PathVariable Long id,
-                                                                     @RequestParam StatusSolicitation status) {
-        return ResponseEntity.ok(gerenciaSolicitacaoService.atualizarStatus(id, status));
+    @PutMapping("/solicitacoes/{id}/aprovar")
+    public ResponseEntity<SolicitacaoDto> aprovarSolicitacao(@PathVariable Long id) {
+        return ResponseEntity.ok(gerenciaSolicitacaoService.aprovarSolicitacao(id));
+    }
+
+    @PutMapping("/solicitacoes/{id}/rejeitar")
+    public ResponseEntity<SolicitacaoDto> rejeitarSolicitacao(
+            @PathVariable Long id,
+            @RequestBody @Valid RejeitarSolicitacaoDto dto
+    ) {
+        return ResponseEntity.ok(
+                gerenciaSolicitacaoService.rejeitarSolicitacao(id, dto.motivo())
+        );
     }
 
     @DeleteMapping("/solicitacoes/{id}")

@@ -1,22 +1,22 @@
 package com.infoway.infofolga.security;
 
 import com.infoway.infofolga.model.Funcionario;
+import com.infoway.infofolga.model.Gerente;
 import com.infoway.infofolga.repository.FuncionarioRepository;
+import com.infoway.infofolga.repository.GerenteRepository;
 import com.infoway.infofolga.service.TokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -24,10 +24,14 @@ public class SecurityFilter extends OncePerRequestFilter {
 
     private final TokenService tokenService;
     private final FuncionarioRepository funcionarioRepository;
+    private final GerenteRepository gerenteRepository;
 
-    public SecurityFilter(TokenService tokenService, FuncionarioRepository funcionarioRepository) {
+    public SecurityFilter(TokenService tokenService,
+                          FuncionarioRepository funcionarioRepository,
+                          GerenteRepository gerenteRepository) {
         this.tokenService = tokenService;
         this.funcionarioRepository = funcionarioRepository;
+        this.gerenteRepository = gerenteRepository;
     }
 
     @Override
@@ -50,25 +54,25 @@ public class SecurityFilter extends OncePerRequestFilter {
 
                 if (cpfLimpo != null && !cpfLimpo.isBlank()) {
                     Optional<Funcionario> funcionarioOpt = funcionarioRepository.findByCpf(cpfLimpo);
+                    Optional<Gerente> gerenteOpt = gerenteRepository.findByCpf(cpfLimpo);
+
+                    UserDetails usuarioLogado = null;
+                    String tipoConta = "DESCONHECIDO";
 
                     if (funcionarioOpt.isPresent()) {
-                        Funcionario funcionario = funcionarioOpt.get();
+                        usuarioLogado = funcionarioOpt.get();
+                        tipoConta = "FUNCIONARIO";
+                    } else if (gerenteOpt.isPresent()) {
+                        usuarioLogado = gerenteOpt.get();
+                        tipoConta = "GERENTE";
+                    }
 
-                        List<SimpleGrantedAuthority> authorities = new ArrayList<>();
-
-                        if (funcionario.getRole() != null) {
-                            authorities.add(new SimpleGrantedAuthority(funcionario.getRole().name()));
-
-                            if ("ROLE_GERENTE".equals(funcionario.getRole().name())) {
-                                authorities.add(new SimpleGrantedAuthority("ROLE_FUNCIONARIO"));
-                            }
-                        }
-
+                    if (usuarioLogado != null) {
                         UsernamePasswordAuthenticationToken authentication =
                                 new UsernamePasswordAuthenticationToken(
-                                        funcionario,
+                                        usuarioLogado,
                                         null,
-                                        authorities
+                                        usuarioLogado.getAuthorities()
                                 );
 
                         authentication.setDetails(
@@ -77,13 +81,12 @@ public class SecurityFilter extends OncePerRequestFilter {
 
                         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                        System.out.println("USUARIO: " + funcionario.getNome());
-                        System.out.println("CPF BANCO: " + funcionario.getCpf());
-                        System.out.println("ROLE BANCO: " + funcionario.getRole());
-                        System.out.println("AUTHORITIES SETADAS: " + authorities);
-                        System.out.println("STATUS: " + funcionario.getStatus());
+                        System.out.println("TIPO DA CONTA: " + tipoConta);
+                        System.out.println("CPF BANCO: " + usuarioLogado.getUsername());
+                        System.out.println("AUTHORITIES SETADAS: " + usuarioLogado.getAuthorities());
+                        System.out.println("STATUS: " + (usuarioLogado.isEnabled() ? "ATIVO" : "INATIVO"));
                     } else {
-                        System.out.println("USUARIO NAO ENCONTRADO NO BANCO");
+                        System.out.println("USUARIO NAO ENCONTRADO EM NENHUMA TABELA");
                         SecurityContextHolder.clearContext();
                     }
                 } else {

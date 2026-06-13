@@ -2,7 +2,9 @@ package com.infoway.infofolga.controller;
 
 import com.infoway.infofolga.dto.UsuarioDto;
 import com.infoway.infofolga.model.Funcionario;
+import com.infoway.infofolga.model.Gerente;
 import com.infoway.infofolga.service.FuncionarioService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,8 +22,16 @@ public class UsuarioController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<UsuarioDto> getUsuarioLogado(Authentication authentication) {
-        Funcionario funcionario = funcionarioService.getFuncionarioAutenticado(authentication.getPrincipal());
-        return ResponseEntity.ok(new UsuarioDto(funcionario));
+    public ResponseEntity<?> getUsuarioLogado(Authentication authentication) {
+        Object principal = authentication.getPrincipal();
+
+        if(principal instanceof Funcionario funcionario) {
+            return ResponseEntity.ok(new UsuarioDto(funcionario));
+        }
+
+        if (principal instanceof Gerente gerente) {
+            return ResponseEntity.ok(gerente);
+        }
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     }
 }

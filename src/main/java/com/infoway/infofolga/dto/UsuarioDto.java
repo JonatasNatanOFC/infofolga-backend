@@ -1,4 +1,5 @@
 package com.infoway.infofolga.dto;
+
 import com.infoway.infofolga.model.Funcionario;
 import com.infoway.infofolga.model.Role;
 
@@ -10,7 +11,7 @@ public record UsuarioDto(Long id, String nome, String matricula, String setor, S
                 funcionario.getMatricula(),
                 funcionario.getSetor(),
                 funcionario.getCargo(),
-                funcionario.getRole(),
+                Role.ROLE_FUNCIONARIO,
                 funcionario.getCpf(),
                 funcionario.getFoto(),
                 funcionario.getStatus()

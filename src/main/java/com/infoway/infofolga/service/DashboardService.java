@@ -22,7 +22,7 @@ public class DashboardService {
     }
 
     public DashboardStatsDto getDashboardStats() {
-        long totalFuncionarios = funcionarioRepository.findAllByRole(Role.ROLE_FUNCIONARIO).size();
+        long totalFuncionarios = funcionarioRepository.count();
         long solicitacoesPendentes = solicitacaoRepository.countByStatus(StatusSolicitation.PENDENTE);
         LocalDateTime trintaDiasAtras = LocalDateTime.now().minusDays(30);
         long aprovadas30Dias = solicitacaoRepository.countByStatusAndAtualizadoEmAfter(
