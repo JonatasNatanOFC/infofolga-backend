@@ -1,5 +1,6 @@
 package com.infoway.infofolga.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -11,8 +12,15 @@ public class Solicitacao {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false)
+    @ManyToOne
+    @JoinColumn(name = "funcionario_id")
+    @JsonIgnoreProperties({"senha", "solicitacoes", "foto"})
     private Funcionario funcionario;
+
+    @ManyToOne
+    @JoinColumn(name = "gerente_id")
+    @JsonIgnoreProperties({"senha", "solicitacoes", "foto"})
+    private Gerente gerente;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -51,71 +59,32 @@ public class Solicitacao {
         this.atualizadoEm = LocalDateTime.now();
     }
 
-    public Long getId() {
-        return id;
-    }
+    public Long getId() { return id; }
 
-    public Funcionario getFuncionario() {
-        return funcionario;
-    }
+    public Funcionario getFuncionario() { return funcionario; }
+    public void setFuncionario(Funcionario funcionario) { this.funcionario = funcionario; }
 
-    public void setFuncionario(Funcionario funcionario) {
-        this.funcionario = funcionario;
-    }
+    public Gerente getGerente() { return gerente; }
+    public void setGerente(Gerente gerente) { this.gerente = gerente; }
 
-    public TipoSolicitacao getTipo() {
-        return tipo;
-    }
+    public TipoSolicitacao getTipo() { return tipo; }
+    public void setTipo(TipoSolicitacao tipo) { this.tipo = tipo; }
 
-    public void setTipo(TipoSolicitacao tipo) {
-        this.tipo = tipo;
-    }
+    public StatusSolicitation getStatus() { return status; }
+    public void setStatus(StatusSolicitation status) { this.status = status; }
 
-    public StatusSolicitation getStatus() {
-        return status;
-    }
+    public LocalDate getDataInicio() { return dataInicio; }
+    public void setDataInicio(LocalDate dataInicio) { this.dataInicio = dataInicio; }
 
-    public void setStatus(StatusSolicitation status) {
-        this.status = status;
-    }
+    public LocalDate getDataFim() { return dataFim; }
+    public void setDataFim(LocalDate dataFim) { this.dataFim = dataFim; }
 
-    public LocalDate getDataInicio() {
-        return dataInicio;
-    }
+    public String getMotivo() { return motivo; }
+    public void setMotivo(String motivo) { this.motivo = motivo; }
 
-    public void setDataInicio(LocalDate dataInicio) {
-        this.dataInicio = dataInicio;
-    }
+    public String getMotivoResposta() { return motivoResposta; }
+    public void setMotivoResposta(String motivoResposta) { this.motivoResposta = motivoResposta; }
 
-    public LocalDate getDataFim() {
-        return dataFim;
-    }
-
-    public void setDataFim(LocalDate dataFim) {
-        this.dataFim = dataFim;
-    }
-
-    public String getMotivo() {
-        return motivo;
-    }
-
-    public void setMotivo(String motivo) {
-        this.motivo = motivo;
-    }
-
-    public String getMotivoResposta() {
-        return motivoResposta;
-    }
-
-    public void setMotivoResposta(String motivoResposta) {
-        this.motivoResposta = motivoResposta;
-    }
-
-    public LocalDateTime getCriadoEm() {
-        return criadoEm;
-    }
-
-    public LocalDateTime getAtualizadoEm() {
-        return atualizadoEm;
-    }
+    public LocalDateTime getCriadoEm() { return criadoEm; }
+    public LocalDateTime getAtualizadoEm() { return atualizadoEm; }
 }

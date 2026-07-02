@@ -5,11 +5,13 @@ import com.infoway.infofolga.dto.SolicitacaoDto;
 import com.infoway.infofolga.model.Funcionario;
 import com.infoway.infofolga.model.Solicitacao;
 import com.infoway.infofolga.model.StatusSolicitation;
+import com.infoway.infofolga.model.TipoSolicitacao;
 import com.infoway.infofolga.repository.SolicitacaoRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -69,10 +71,23 @@ public class FuncionarioSolicitacaoService {
 
     private void validarDatas(CriarSolicitacaoDto dto) {
         if (dto.dataInicio().isAfter(dto.dataFim())) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "A data inicial não pode ser maior que a data final."
-            );
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A data inicial não pode ser maior que a data final.");
+        }
+
+        LocalDate hoje = LocalDate.now();
+        LocalDate dataMinima = hoje.plusDays(3);
+        LocalDate dataMaxima = hoje.plusDays(30);
+
+        if (dto.dataInicio().isBefore(dataMinima)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A solicitação deve ser feita com pelo menos 3 dias de antecedência.");
+        }
+
+        if (dto.dataInicio().isAfter(dataMaxima) || dto.dataFim().isAfter(dataMaxima)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "As datas da solicitação não podem exceder o limite de 30 dias no futuro.");
+        }
+
+        if (dto.tipo() == TipoSolicitacao.FOLGA && !dto.dataInicio().isEqual(dto.dataFim())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A solicitação de folga deve ser para apenas 1 dia.");
         }
     }
 }
