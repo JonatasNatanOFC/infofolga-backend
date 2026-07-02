@@ -2,9 +2,13 @@ package com.infoway.infofolga.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+@Getter
 @Entity
 public class Solicitacao {
 
@@ -12,33 +16,41 @@ public class Solicitacao {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Setter
     @ManyToOne
     @JoinColumn(name = "funcionario_id")
     @JsonIgnoreProperties({"senha", "solicitacoes", "foto"})
     private Funcionario funcionario;
 
+    @Setter
     @ManyToOne
     @JoinColumn(name = "gerente_id")
     @JsonIgnoreProperties({"senha", "solicitacoes", "foto"})
     private Gerente gerente;
 
+    @Setter
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TipoSolicitacao tipo;
 
+    @Setter
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private StatusSolicitation status;
 
+    @Setter
     @Column(nullable = false)
     private LocalDate dataInicio;
 
+    @Setter
     @Column(nullable = false)
     private LocalDate dataFim;
 
+    @Setter
     @Column(columnDefinition = "TEXT")
     private String motivo;
 
+    @Setter
     @Column(columnDefinition = "TEXT")
     private String motivoResposta;
 
@@ -59,32 +71,4 @@ public class Solicitacao {
         this.atualizadoEm = LocalDateTime.now();
     }
 
-    public Long getId() { return id; }
-
-    public Funcionario getFuncionario() { return funcionario; }
-    public void setFuncionario(Funcionario funcionario) { this.funcionario = funcionario; }
-
-    public Gerente getGerente() { return gerente; }
-    public void setGerente(Gerente gerente) { this.gerente = gerente; }
-
-    public TipoSolicitacao getTipo() { return tipo; }
-    public void setTipo(TipoSolicitacao tipo) { this.tipo = tipo; }
-
-    public StatusSolicitation getStatus() { return status; }
-    public void setStatus(StatusSolicitation status) { this.status = status; }
-
-    public LocalDate getDataInicio() { return dataInicio; }
-    public void setDataInicio(LocalDate dataInicio) { this.dataInicio = dataInicio; }
-
-    public LocalDate getDataFim() { return dataFim; }
-    public void setDataFim(LocalDate dataFim) { this.dataFim = dataFim; }
-
-    public String getMotivo() { return motivo; }
-    public void setMotivo(String motivo) { this.motivo = motivo; }
-
-    public String getMotivoResposta() { return motivoResposta; }
-    public void setMotivoResposta(String motivoResposta) { this.motivoResposta = motivoResposta; }
-
-    public LocalDateTime getCriadoEm() { return criadoEm; }
-    public LocalDateTime getAtualizadoEm() { return atualizadoEm; }
 }

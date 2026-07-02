@@ -4,26 +4,48 @@ import com.infoway.infofolga.dto.GerentePayload;
 import com.infoway.infofolga.model.Gerente;
 import com.infoway.infofolga.service.GerenciaAdministracaoService;
 import com.infoway.infofolga.repository.GerenteRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/gerencia")
 public class GerenciaController {
 
-    @Autowired
-    private GerenciaAdministracaoService adminService;
+    private final GerenciaAdministracaoService adminService;
+    private final GerenteRepository gerenteRepository;
 
-    @Autowired
-    private GerenteRepository gerenteRepository;
+    public GerenciaController(GerenciaAdministracaoService adminService, GerenteRepository gerenteRepository) {
+        this.adminService = adminService;
+        this.gerenteRepository = gerenteRepository;
+    }
 
     @GetMapping("/gerentes")
-    public ResponseEntity<List<Gerente>> listarGerentes() {
-        return ResponseEntity.ok(gerenteRepository.findAll());
+    public ResponseEntity<List<Map<String, Object>>> listarGerentes() {
+        List<Map<String, Object>> gerentesSeguros = gerenteRepository.findAll().stream()
+                .filter(g -> !g.getCpf().startsWith("REBAIXADO_"))
+                .map(g -> {
+                    Map<String, Object> dto = new HashMap<>();
+                    dto.put("id", g.getId());
+                    dto.put("nome", g.getNome());
+                    dto.put("cpf", g.getCpf());
+                    dto.put("status", g.getStatus());
+                    dto.put("isCeo", g.isCeo());
+                    dto.put("matricula", g.getMatricula());
+                    dto.put("cargo", g.getCargo());
+                    dto.put("setor", g.getSetor());
+                    dto.put("foto", g.getFoto());
+
+                    return dto;
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(gerentesSeguros);
     }
 
     @PostMapping("/gerentes")
@@ -32,13 +54,13 @@ public class GerenciaController {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
-    @PostMapping("/funcionarios/{id}/promover")
+    @PutMapping("/funcionarios/{id}/promover")
     public ResponseEntity<Void> promoverFuncionario(@PathVariable Long id) {
         adminService.promoverParaGerente(id);
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/gerentes/{id}/rebaixar")
+    @PutMapping("/gerentes/{id}/rebaixar")
     public ResponseEntity<Void> rebaixarGerente(@PathVariable Long id) {
         adminService.rebaixarParaFuncionario(id);
         return ResponseEntity.ok().build();
@@ -47,6 +69,12 @@ public class GerenciaController {
     @PutMapping("/gerentes/{id}/inativar")
     public ResponseEntity<Void> inativarGerente(@PathVariable Long id) {
         adminService.inativarGerente(id);
+        return ResponseEntity.ok().build();
+    }
+    
+    @PutMapping("/gerentes/{id}")
+    public ResponseEntity<Void> atualizarGerente(@PathVariable Long id, @RequestBody GerentePayload payload) {
+        adminService.atualizarGerente(id, payload);
         return ResponseEntity.ok().build();
     }
 }

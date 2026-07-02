@@ -9,11 +9,17 @@ import java.time.LocalDateTime;
 
 public record SolicitacaoDto(
         Long id,
+
         Long funcionarioId,
         String funcionarioNome,
         String funcionarioFoto,
         String funcionarioSetor,
         String funcionarioCargo,
+
+        Long gerenteId,
+        String gerenteNome,
+        String gerenteFoto,
+
         TipoSolicitacao tipo,
         StatusSolicitation status,
         LocalDate dataInicio,
@@ -25,11 +31,17 @@ public record SolicitacaoDto(
     public SolicitacaoDto(Solicitacao s) {
         this(
                 s.getId(),
-                s.getFuncionario().getId(),
-                s.getFuncionario().getNome(),
-                s.getFuncionario().getFoto(),
-                s.getFuncionario().getSetor(),
-                s.getFuncionario().getCargo(),
+
+                s.getFuncionario() != null ? s.getFuncionario().getId() : null,
+                s.getFuncionario() != null ? s.getFuncionario().getNome() : null,
+                s.getFuncionario() != null ? s.getFuncionario().getFoto() : null,
+                s.getFuncionario() != null ? s.getFuncionario().getSetor() : null,
+                s.getFuncionario() != null ? s.getFuncionario().getCargo() : null,
+
+                s.getGerente() != null ? s.getGerente().getId() : null,
+                s.getGerente() != null ? s.getGerente().getNome() : null,
+                s.getGerente() != null ? s.getGerente().getFoto() : null,
+
                 s.getTipo(),
                 s.getStatus(),
                 s.getDataInicio(),

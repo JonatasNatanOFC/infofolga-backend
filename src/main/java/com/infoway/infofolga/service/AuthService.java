@@ -39,8 +39,9 @@ public class AuthService {
             String token = tokenService.gerarToken((UserDetails) principal);
 
             if (principal instanceof Gerente gerente) {
-                log.info("[AuthService] Login de gerente id={}", gerente.getId());
-                return new LoginResponseDto(token, gerente.getNome(), Role.ROLE_GERENTE);
+                Role role = gerente.isCeo() ? Role.ROLE_CEO : Role.ROLE_GERENTE;
+                log.info("[AuthService] Login efetuado: {} id={}", role, gerente.getId());
+                return new LoginResponseDto(token, gerente.getNome(), role);
             } else if (principal instanceof Funcionario funcionario) {
                 log.info("[AuthService] Login de funcionário id={}", funcionario.getId());
                 return new LoginResponseDto(token, funcionario.getNome(), Role.ROLE_FUNCIONARIO);
