@@ -49,8 +49,14 @@ public class GerenciaFuncionarioController {
 
     @PutMapping("/funcionarios/{id}")
     public ResponseEntity<UsuarioDto> atualizarFuncionario(@PathVariable Long id,
-                                                           @RequestBody @Valid CadastroFuncionarioDto dto) {
+            @RequestBody @Valid CadastroFuncionarioDto dto) {
         return ResponseEntity.ok(gerenciaFuncionarioService.atualizarFuncionario(id, dto));
+    }
+
+    @PostMapping("/funcionarios/{id}/promover")
+    public ResponseEntity<Void> promoverFuncionario(@PathVariable Long id) {
+        gerenciaFuncionarioService.promoverParaGerente(id);
+        return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/funcionarios/{id}")

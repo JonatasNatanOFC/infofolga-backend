@@ -22,8 +22,7 @@ public class FuncionarioSolicitacaoController {
 
     public FuncionarioSolicitacaoController(
             FuncionarioSolicitacaoService funcionarioSolicitacaoService,
-            FuncionarioService funcionarioService
-    ) {
+            FuncionarioService funcionarioService) {
         this.funcionarioSolicitacaoService = funcionarioSolicitacaoService;
         this.funcionarioService = funcionarioService;
     }
@@ -31,8 +30,7 @@ public class FuncionarioSolicitacaoController {
     @PostMapping
     public ResponseEntity<SolicitacaoDto> criar(
             @RequestBody @Valid CriarSolicitacaoDto dto,
-            Authentication authentication
-    ) {
+            Authentication authentication) {
         Funcionario funcionario = funcionarioService.getFuncionarioAutenticado(authentication.getPrincipal());
         SolicitacaoDto criada = funcionarioSolicitacaoService.criarSolicitacao(dto, funcionario);
         return ResponseEntity.status(HttpStatus.CREATED).body(criada);
@@ -42,14 +40,15 @@ public class FuncionarioSolicitacaoController {
     public ResponseEntity<List<SolicitacaoDto>> listarMinhas(Authentication authentication) {
         Funcionario funcionario = funcionarioService.getFuncionarioAutenticado(authentication.getPrincipal());
         return ResponseEntity.ok(
-                funcionarioSolicitacaoService.listarMinhasSolicitacoes(funcionario.getId())
-        );
+                funcionarioSolicitacaoService.listarMinhasSolicitacoes(funcionario.getId()));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> cancelar(@PathVariable Long id, Authentication authentication) {
         Funcionario funcionario = funcionarioService.getFuncionarioAutenticado(authentication.getPrincipal());
-        funcionarioSolicitacaoService.cancelarSolicitacao(id, funcionario.getId());
+
+        funcionarioSolicitacaoService.cancelarSolicitacao(id, funcionario.getId(), false);
+
         return ResponseEntity.noContent().build();
     }
 }

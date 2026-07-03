@@ -3,8 +3,11 @@ package com.infoway.infofolga.service;
 import com.infoway.infofolga.dto.CadastroFuncionarioDto;
 import com.infoway.infofolga.dto.UsuarioDto;
 import com.infoway.infofolga.model.Funcionario;
-import com.infoway.infofolga.model.Role;
+import com.infoway.infofolga.model.Gerente;
+import com.infoway.infofolga.model.Solicitacao;
 import com.infoway.infofolga.repository.FuncionarioRepository;
+import com.infoway.infofolga.repository.GerenteRepository;
+import com.infoway.infofolga.repository.SolicitacaoRepository;
 import com.infoway.infofolga.util.CpfUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -18,11 +21,17 @@ import java.util.List;
 public class GerenciaFuncionarioService {
 
     private final FuncionarioRepository funcionarioRepository;
+    private final GerenteRepository gerenteRepository;
+    private final SolicitacaoRepository solicitacaoRepository;
     private final PasswordEncoder passwordEncoder;
 
     public GerenciaFuncionarioService(FuncionarioRepository funcionarioRepository,
-                                      PasswordEncoder passwordEncoder) {
+            GerenteRepository gerenteRepository,
+            SolicitacaoRepository solicitacaoRepository,
+            PasswordEncoder passwordEncoder) {
         this.funcionarioRepository = funcionarioRepository;
+        this.gerenteRepository = gerenteRepository;
+        this.solicitacaoRepository = solicitacaoRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -37,8 +46,7 @@ public class GerenciaFuncionarioService {
     public UsuarioDto buscarPorId(Long id) {
         Funcionario funcionario = funcionarioRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Funcionário não encontrado."
-                ));
+                        HttpStatus.NOT_FOUND, "Funcionário não encontrado."));
 
         return new UsuarioDto(funcionario);
     }
@@ -48,8 +56,7 @@ public class GerenciaFuncionarioService {
 
         Funcionario funcionario = funcionarioRepository.findByCpf(cpfLimpo)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Funcionário não encontrado."
-                ));
+                        HttpStatus.NOT_FOUND, "Funcionário não encontrado."));
 
         return new UsuarioDto(funcionario);
     }
@@ -70,16 +77,14 @@ public class GerenciaFuncionarioService {
         } catch (DataIntegrityViolationException e) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "CPF ou matrícula já cadastrado."
-            );
+                    "CPF ou matrícula já cadastrado.");
         }
     }
 
     public UsuarioDto atualizarFuncionario(Long id, CadastroFuncionarioDto dto) {
         Funcionario funcionario = funcionarioRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Funcionário não encontrado."
-                ));
+                        HttpStatus.NOT_FOUND, "Funcionário não encontrado."));
 
         try {
             atualizarDadosFuncionario(funcionario, dto);
@@ -93,19 +98,43 @@ public class GerenciaFuncionarioService {
         } catch (DataIntegrityViolationException e) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "CPF ou matrícula já cadastrado."
-            );
+                    "CPF ou matrícula já cadastrado.");
         }
+    }
+
+    public void promoverParaGerente(Long funcionarioId) {
+        Funcionario funcionario = funcionarioRepository.findById(funcionarioId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Funcionário não encontrado."));
+
+        Gerente novoGerente = new Gerente();
+        novoGerente.setNome(funcionario.getNome());
+        novoGerente.setCpf(funcionario.getCpf());
+        novoGerente.setSenha(funcionario.getSenha()); // Mantém a senha
+        novoGerente.setCargo("Gerente"); // Cargo base
+        novoGerente.setSetor(funcionario.getSetor());
+        novoGerente.setMatricula(funcionario.getMatricula());
+        novoGerente.setFoto(funcionario.getFoto());
+        novoGerente.setStatus("ativo");
+        novoGerente.setCeo(false);
+
+        Gerente gerenteSalvo = gerenteRepository.save(novoGerente);
+
+        List<Solicitacao> historico = solicitacaoRepository.findByFuncionarioId(funcionarioId);
+        for (Solicitacao sol : historico) {
+            sol.setFuncionario(null);
+            sol.setSolicitanteGerente(gerenteSalvo);
+            solicitacaoRepository.save(sol);
+        }
+
+        funcionarioRepository.delete(funcionario);
     }
 
     public void removerFuncionario(Long id) {
         if (!funcionarioRepository.existsById(id)) {
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
-                    "Funcionário não encontrado."
-            );
+                    "Funcionário não encontrado.");
         }
-
         funcionarioRepository.deleteById(id);
     }
 

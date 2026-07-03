@@ -18,14 +18,20 @@ public class Solicitacao {
 
     @Setter
     @ManyToOne
-    @JoinColumn(name = "funcionario_id")
-    @JsonIgnoreProperties({"senha", "solicitacoes", "foto"})
+    @JoinColumn(name = "funcionario_id", nullable = true)
+    @JsonIgnoreProperties({ "senha", "solicitacoes", "foto" })
     private Funcionario funcionario;
 
     @Setter
     @ManyToOne
+    @JoinColumn(name = "solicitante_gerente_id", nullable = true)
+    @JsonIgnoreProperties({ "senha", "foto" })
+    private Gerente solicitanteGerente;
+
+    @Setter
+    @ManyToOne
     @JoinColumn(name = "gerente_id")
-    @JsonIgnoreProperties({"senha", "solicitacoes", "foto"})
+    @JsonIgnoreProperties({ "senha", "solicitacoes", "foto" })
     private Gerente gerente;
 
     @Setter
@@ -70,5 +76,4 @@ public class Solicitacao {
     public void preUpdate() {
         this.atualizadoEm = LocalDateTime.now();
     }
-
 }

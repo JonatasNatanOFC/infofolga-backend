@@ -18,14 +18,17 @@ public interface SolicitacaoRepository extends JpaRepository<Solicitacao, Long> 
     @Query("SELECT COUNT(s) FROM Solicitacao s WHERE s.status = :status AND s.atualizadoEm >= :desde")
     long countByStatusAndAtualizadoEmAfter(
             @Param("status") StatusSolicitation status,
-            @Param("desde") LocalDateTime desde
-    );
+            @Param("desde") LocalDateTime desde);
 
     List<Solicitacao> findByFuncionarioId(Long funcionarioId);
+
+    List<Solicitacao> findBySolicitanteGerenteId(Long gerenteId);
 
     List<Solicitacao> findByGerenteId(Long gerenteId);
 
     List<Solicitacao> findByFuncionarioIdOrderByCriadoEmDesc(Long funcionarioId);
+
+    List<Solicitacao> findBySolicitanteGerenteIdOrderByCriadoEmDesc(Long gerenteId);
 
     List<Solicitacao> findByStatusOrderByCriadoEmDesc(StatusSolicitation status);
 

@@ -3,6 +3,7 @@ package com.infoway.infofolga.service;
 import com.infoway.infofolga.dto.CriarSolicitacaoDto;
 import com.infoway.infofolga.dto.SolicitacaoDto;
 import com.infoway.infofolga.model.Funcionario;
+import com.infoway.infofolga.model.Gerente;
 import com.infoway.infofolga.model.Solicitacao;
 import com.infoway.infofolga.model.StatusSolicitation;
 import com.infoway.infofolga.model.TipoSolicitacao;
@@ -28,11 +29,30 @@ public class FuncionarioSolicitacaoService {
         validarDatas(dto);
 
         if (dto.tipo() == TipoSolicitacao.FERIAS) {
-            validarRegrasDeFerias(dto, funcionario);
+            validarRegrasDeFerias(dto, funcionario.getId(), true);
         }
 
         Solicitacao solicitacao = new Solicitacao();
         solicitacao.setFuncionario(funcionario);
+        solicitacao.setTipo(dto.tipo());
+        solicitacao.setDataInicio(dto.dataInicio());
+        solicitacao.setDataFim(dto.dataFim());
+        solicitacao.setMotivo(dto.motivo());
+        solicitacao.setStatus(StatusSolicitation.PENDENTE);
+
+        Solicitacao salva = solicitacaoRepository.save(solicitacao);
+        return new SolicitacaoDto(salva);
+    }
+
+    public SolicitacaoDto criarSolicitacaoGerente(CriarSolicitacaoDto dto, Gerente gerenteSolicitante) {
+        validarDatas(dto);
+
+        if (dto.tipo() == TipoSolicitacao.FERIAS) {
+            validarRegrasDeFerias(dto, gerenteSolicitante.getId(), false);
+        }
+
+        Solicitacao solicitacao = new Solicitacao();
+        solicitacao.setSolicitanteGerente(gerenteSolicitante);
         solicitacao.setTipo(dto.tipo());
         solicitacao.setDataInicio(dto.dataInicio());
         solicitacao.setDataFim(dto.dataFim());
@@ -50,25 +70,37 @@ public class FuncionarioSolicitacaoService {
                 .toList();
     }
 
-    public void cancelarSolicitacao(Long solicitacaoId, Long funcionarioId) {
+    public List<SolicitacaoDto> listarMinhasSolicitacoesGerente(Long gerenteId) {
+        return solicitacaoRepository.findBySolicitanteGerenteIdOrderByCriadoEmDesc(gerenteId)
+                .stream()
+                .map(SolicitacaoDto::new)
+                .toList();
+    }
+
+    public void cancelarSolicitacao(Long solicitacaoId, Long userId, boolean isGerente) {
         Solicitacao solicitacao = solicitacaoRepository.findById(solicitacaoId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "Solicitação não encontrada."
-                ));
+                        "Solicitação não encontrada."));
 
-        if (!solicitacao.getFuncionario().getId().equals(funcionarioId)) {
+        boolean pertenceAoUsuario = false;
+
+        if (isGerente && solicitacao.getSolicitanteGerente() != null) {
+            pertenceAoUsuario = solicitacao.getSolicitanteGerente().getId().equals(userId);
+        } else if (!isGerente && solicitacao.getFuncionario() != null) {
+            pertenceAoUsuario = solicitacao.getFuncionario().getId().equals(userId);
+        }
+
+        if (!pertenceAoUsuario) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "Você não pode cancelar esta solicitação."
-            );
+                    "Você não pode cancelar esta solicitação.");
         }
 
         if (solicitacao.getStatus() != StatusSolicitation.PENDENTE) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Só é possível cancelar solicitações pendentes."
-            );
+                    "Só é possível cancelar solicitações pendentes.");
         }
 
         solicitacaoRepository.delete(solicitacao);
@@ -76,7 +108,8 @@ public class FuncionarioSolicitacaoService {
 
     private void validarDatas(CriarSolicitacaoDto dto) {
         if (dto.dataInicio().isAfter(dto.dataFim())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A data inicial não pode ser maior que a data final.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A data inicial não pode ser maior que a data final.");
         }
 
         LocalDate hoje = LocalDate.now();
@@ -86,31 +119,39 @@ public class FuncionarioSolicitacaoService {
             LocalDate dataMaxima = hoje.plusDays(30);
 
             if (dto.dataInicio().isBefore(dataMinima)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A folga deve ser solicitada com pelo menos 3 dias de antecedência.");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "A folga deve ser solicitada com pelo menos 3 dias de antecedência.");
             }
             if (dto.dataInicio().isAfter(dataMaxima)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Você só pode agendar folgas para no máximo 30 dias no futuro.");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Você só pode agendar folgas para no máximo 30 dias no futuro.");
             }
             if (!dto.dataInicio().isEqual(dto.dataFim())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A solicitação de folga deve ser para apenas 1 dia.");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "A solicitação de folga deve ser para apenas 1 dia.");
             }
 
         } else if (dto.tipo() == TipoSolicitacao.FERIAS) {
-            // NOVA REGRA: 15 dias de antecedência para Férias
             LocalDate dataMinimaFerias = hoje.plusDays(15);
 
             if (dto.dataInicio().isBefore(dataMinimaFerias)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Férias devem ser solicitadas com pelo menos 15 dias de antecedência.");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Férias devem ser solicitadas com pelo menos 15 dias de antecedência.");
             }
         }
     }
 
-    private void validarRegrasDeFerias(CriarSolicitacaoDto dto, Funcionario funcionario) {
+    private void validarRegrasDeFerias(CriarSolicitacaoDto dto, Long userId, boolean isFuncionario) {
         int anoAtual = dto.dataInicio().getYear();
 
         long diasSolicitados = ChronoUnit.DAYS.between(dto.dataInicio(), dto.dataFim()) + 1;
 
-        List<Solicitacao> historico = solicitacaoRepository.findByFuncionarioIdOrderByCriadoEmDesc(funcionario.getId());
+        List<Solicitacao> historico;
+        if (isFuncionario) {
+            historico = solicitacaoRepository.findByFuncionarioIdOrderByCriadoEmDesc(userId);
+        } else {
+            historico = solicitacaoRepository.findBySolicitanteGerenteIdOrderByCriadoEmDesc(userId);
+        }
 
         List<Solicitacao> feriasDesteAno = historico.stream()
                 .filter(s -> s.getTipo() == TipoSolicitacao.FERIAS)
@@ -119,7 +160,8 @@ public class FuncionarioSolicitacaoService {
                 .toList();
 
         if (feriasDesteAno.size() >= 3) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Você já atingiu o limite máximo de 3 parcelamentos de férias neste ano.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Você já atingiu o limite máximo de 3 parcelamentos de férias neste ano.");
         }
 
         long diasJaTirados = feriasDesteAno.stream()
@@ -129,9 +171,12 @@ public class FuncionarioSolicitacaoService {
         if (diasJaTirados + diasSolicitados > 30) {
             long diasRestantes = 30 - diasJaTirados;
             if (diasRestantes == 0) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Você já utilizou todos os seus 30 dias de férias neste ano.");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Você já utilizou todos os seus 30 dias de férias neste ano.");
             } else {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O pedido (" + diasSolicitados + " dias) excede o limite. Você tem direito a apenas " + diasRestantes + " dia(s) restante(s).");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "O pedido (" + diasSolicitados + " dias) excede o limite. Você tem direito a apenas "
+                                + diasRestantes + " dia(s) restante(s).");
             }
         }
     }

@@ -26,17 +26,22 @@ public record SolicitacaoDto(
         LocalDate dataFim,
         String motivo,
         String motivoResposta,
-        LocalDateTime criadoEm
-) {
+        LocalDateTime criadoEm) {
     public SolicitacaoDto(Solicitacao s) {
         this(
                 s.getId(),
 
-                s.getFuncionario() != null ? s.getFuncionario().getId() : null,
-                s.getFuncionario() != null ? s.getFuncionario().getNome() : null,
-                s.getFuncionario() != null ? s.getFuncionario().getFoto() : null,
-                s.getFuncionario() != null ? s.getFuncionario().getSetor() : null,
-                s.getFuncionario() != null ? s.getFuncionario().getCargo() : null,
+    
+                s.getFuncionario() != null ? s.getFuncionario().getId()
+                        : (s.getSolicitanteGerente() != null ? s.getSolicitanteGerente().getId() : null),
+                s.getFuncionario() != null ? s.getFuncionario().getNome()
+                        : (s.getSolicitanteGerente() != null ? s.getSolicitanteGerente().getNome() : null),
+                s.getFuncionario() != null ? s.getFuncionario().getFoto()
+                        : (s.getSolicitanteGerente() != null ? s.getSolicitanteGerente().getFoto() : null),
+                s.getFuncionario() != null ? s.getFuncionario().getSetor()
+                        : (s.getSolicitanteGerente() != null ? s.getSolicitanteGerente().getSetor() : null),
+                s.getFuncionario() != null ? s.getFuncionario().getCargo()
+                        : (s.getSolicitanteGerente() != null ? s.getSolicitanteGerente().getCargo() : null),
 
                 s.getGerente() != null ? s.getGerente().getId() : null,
                 s.getGerente() != null ? s.getGerente().getNome() : null,
@@ -48,7 +53,6 @@ public record SolicitacaoDto(
                 s.getDataFim(),
                 s.getMotivo(),
                 s.getMotivoResposta(),
-                s.getCriadoEm()
-        );
+                s.getCriadoEm());
     }
 }
