@@ -13,6 +13,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -36,34 +37,24 @@ public class GerenciaFuncionarioService {
     }
 
     public List<UsuarioDto> listarFuncionarios() {
-        List<Funcionario> funcionarios = funcionarioRepository.findAll();
-
-        return funcionarios.stream()
-                .map(UsuarioDto::new)
-                .toList();
+        return funcionarioRepository.findAll().stream().map(UsuarioDto::new).toList();
     }
 
     public UsuarioDto buscarPorId(Long id) {
         Funcionario funcionario = funcionarioRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Funcionário não encontrado."));
-
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Funcionário não encontrado."));
         return new UsuarioDto(funcionario);
     }
 
     public UsuarioDto buscarPorCpf(String cpf) {
         String cpfLimpo = CpfUtils.limpar(cpf);
-
         Funcionario funcionario = funcionarioRepository.findByCpf(cpfLimpo)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Funcionário não encontrado."));
-
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Funcionário não encontrado."));
         return new UsuarioDto(funcionario);
     }
 
     public boolean existeCpf(String cpf) {
-        String cpfLimpo = CpfUtils.limpar(cpf);
-        return funcionarioRepository.findByCpf(cpfLimpo).isPresent();
+        return funcionarioRepository.findByCpf(CpfUtils.limpar(cpf)).isPresent();
     }
 
     public UsuarioDto adicionarFuncionario(CadastroFuncionarioDto dto) {
@@ -71,37 +62,27 @@ public class GerenciaFuncionarioService {
             Funcionario funcionario = new Funcionario();
             atualizarDadosFuncionario(funcionario, dto);
             funcionario.setStatus("ativo");
-
-            Funcionario salvo = funcionarioRepository.save(funcionario);
-            return new UsuarioDto(salvo);
+            return new UsuarioDto(funcionarioRepository.save(funcionario));
         } catch (DataIntegrityViolationException e) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "CPF ou matrícula já cadastrado.");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "CPF ou matrícula já cadastrado.");
         }
     }
 
     public UsuarioDto atualizarFuncionario(Long id, CadastroFuncionarioDto dto) {
         Funcionario funcionario = funcionarioRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Funcionário não encontrado."));
-
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Funcionário não encontrado."));
         try {
             atualizarDadosFuncionario(funcionario, dto);
-
             if (dto.status() != null && !dto.status().isBlank()) {
                 funcionario.setStatus(dto.status());
             }
-
-            Funcionario salvo = funcionarioRepository.save(funcionario);
-            return new UsuarioDto(salvo);
+            return new UsuarioDto(funcionarioRepository.save(funcionario));
         } catch (DataIntegrityViolationException e) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "CPF ou matrícula já cadastrado.");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "CPF ou matrícula já cadastrado.");
         }
     }
 
+    @Transactional
     public void promoverParaGerente(Long funcionarioId) {
         Funcionario funcionario = funcionarioRepository.findById(funcionarioId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Funcionário não encontrado."));
@@ -109,8 +90,8 @@ public class GerenciaFuncionarioService {
         Gerente novoGerente = new Gerente();
         novoGerente.setNome(funcionario.getNome());
         novoGerente.setCpf(funcionario.getCpf());
-        novoGerente.setSenha(funcionario.getSenha()); // Mantém a senha
-        novoGerente.setCargo("Gerente"); // Cargo base
+        novoGerente.setSenha(funcionario.getSenha());
+        novoGerente.setCargo("Gerente");
         novoGerente.setSetor(funcionario.getSetor());
         novoGerente.setMatricula(funcionario.getMatricula());
         novoGerente.setFoto(funcionario.getFoto());
@@ -131,9 +112,7 @@ public class GerenciaFuncionarioService {
 
     public void removerFuncionario(Long id) {
         if (!funcionarioRepository.existsById(id)) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Funcionário não encontrado.");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Funcionário não encontrado.");
         }
         funcionarioRepository.deleteById(id);
     }
@@ -143,12 +122,9 @@ public class GerenciaFuncionarioService {
         funcionario.setMatricula(nullIfBlank(dto.matricula()));
         funcionario.setCargo(nullIfBlank(dto.cargo()));
         funcionario.setSetor(nullIfBlank(dto.setor()));
-
         String cpfValido = nullIfBlank(dto.cpf());
         funcionario.setCpf(cpfValido != null ? CpfUtils.limpar(cpfValido) : null);
-
         funcionario.setFoto(nullIfBlank(dto.foto()));
-
         if (dto.senha() != null && !dto.senha().isBlank()) {
             funcionario.setSenha(passwordEncoder.encode(dto.senha()));
         }

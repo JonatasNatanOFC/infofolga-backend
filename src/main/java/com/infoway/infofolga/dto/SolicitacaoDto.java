@@ -31,17 +31,17 @@ public record SolicitacaoDto(
         this(
                 s.getId(),
 
-    
                 s.getFuncionario() != null ? s.getFuncionario().getId()
                         : (s.getSolicitanteGerente() != null ? s.getSolicitanteGerente().getId() : null),
                 s.getFuncionario() != null ? s.getFuncionario().getNome()
-                        : (s.getSolicitanteGerente() != null ? s.getSolicitanteGerente().getNome() : null),
+                        : (s.getSolicitanteGerente() != null ? s.getSolicitanteGerente().getNome()
+                                : "Usuário Promovido"),
                 s.getFuncionario() != null ? s.getFuncionario().getFoto()
                         : (s.getSolicitanteGerente() != null ? s.getSolicitanteGerente().getFoto() : null),
                 s.getFuncionario() != null ? s.getFuncionario().getSetor()
-                        : (s.getSolicitanteGerente() != null ? s.getSolicitanteGerente().getSetor() : null),
+                        : (s.getSolicitanteGerente() != null ? s.getSolicitanteGerente().getSetor() : "Gerência"),
                 s.getFuncionario() != null ? s.getFuncionario().getCargo()
-                        : (s.getSolicitanteGerente() != null ? s.getSolicitanteGerente().getCargo() : null),
+                        : (s.getSolicitanteGerente() != null ? s.getSolicitanteGerente().getCargo() : "Gerente"),
 
                 s.getGerente() != null ? s.getGerente().getId() : null,
                 s.getGerente() != null ? s.getGerente().getNome() : null,
