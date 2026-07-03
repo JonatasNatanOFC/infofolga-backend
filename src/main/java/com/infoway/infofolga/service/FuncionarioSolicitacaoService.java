@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
@@ -25,6 +26,10 @@ public class FuncionarioSolicitacaoService {
 
     public SolicitacaoDto criarSolicitacao(CriarSolicitacaoDto dto, Funcionario funcionario) {
         validarDatas(dto);
+
+        if (dto.tipo() == TipoSolicitacao.FERIAS) {
+            validarRegrasDeFerias(dto, funcionario);
+        }
 
         Solicitacao solicitacao = new Solicitacao();
         solicitacao.setFuncionario(funcionario);
@@ -75,19 +80,59 @@ public class FuncionarioSolicitacaoService {
         }
 
         LocalDate hoje = LocalDate.now();
-        LocalDate dataMinima = hoje.plusDays(3);
-        LocalDate dataMaxima = hoje.plusDays(30);
 
-        if (dto.dataInicio().isBefore(dataMinima)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A solicitação deve ser feita com pelo menos 3 dias de antecedência.");
+        if (dto.tipo() == TipoSolicitacao.FOLGA) {
+            LocalDate dataMinima = hoje.plusDays(3);
+            LocalDate dataMaxima = hoje.plusDays(30);
+
+            if (dto.dataInicio().isBefore(dataMinima)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A folga deve ser solicitada com pelo menos 3 dias de antecedência.");
+            }
+            if (dto.dataInicio().isAfter(dataMaxima)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Você só pode agendar folgas para no máximo 30 dias no futuro.");
+            }
+            if (!dto.dataInicio().isEqual(dto.dataFim())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A solicitação de folga deve ser para apenas 1 dia.");
+            }
+
+        } else if (dto.tipo() == TipoSolicitacao.FERIAS) {
+            // NOVA REGRA: 15 dias de antecedência para Férias
+            LocalDate dataMinimaFerias = hoje.plusDays(15);
+
+            if (dto.dataInicio().isBefore(dataMinimaFerias)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Férias devem ser solicitadas com pelo menos 15 dias de antecedência.");
+            }
+        }
+    }
+
+    private void validarRegrasDeFerias(CriarSolicitacaoDto dto, Funcionario funcionario) {
+        int anoAtual = dto.dataInicio().getYear();
+
+        long diasSolicitados = ChronoUnit.DAYS.between(dto.dataInicio(), dto.dataFim()) + 1;
+
+        List<Solicitacao> historico = solicitacaoRepository.findByFuncionarioIdOrderByCriadoEmDesc(funcionario.getId());
+
+        List<Solicitacao> feriasDesteAno = historico.stream()
+                .filter(s -> s.getTipo() == TipoSolicitacao.FERIAS)
+                .filter(s -> s.getStatus() != StatusSolicitation.REJEITADA)
+                .filter(s -> s.getDataInicio().getYear() == anoAtual)
+                .toList();
+
+        if (feriasDesteAno.size() >= 3) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Você já atingiu o limite máximo de 3 parcelamentos de férias neste ano.");
         }
 
-        if (dto.dataInicio().isAfter(dataMaxima) || dto.dataFim().isAfter(dataMaxima)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "As datas da solicitação não podem exceder o limite de 30 dias no futuro.");
-        }
+        long diasJaTirados = feriasDesteAno.stream()
+                .mapToLong(s -> ChronoUnit.DAYS.between(s.getDataInicio(), s.getDataFim()) + 1)
+                .sum();
 
-        if (dto.tipo() == TipoSolicitacao.FOLGA && !dto.dataInicio().isEqual(dto.dataFim())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A solicitação de folga deve ser para apenas 1 dia.");
+        if (diasJaTirados + diasSolicitados > 30) {
+            long diasRestantes = 30 - diasJaTirados;
+            if (diasRestantes == 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Você já utilizou todos os seus 30 dias de férias neste ano.");
+            } else {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O pedido (" + diasSolicitados + " dias) excede o limite. Você tem direito a apenas " + diasRestantes + " dia(s) restante(s).");
+            }
         }
     }
 }

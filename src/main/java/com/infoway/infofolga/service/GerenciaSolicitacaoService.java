@@ -1,9 +1,11 @@
 package com.infoway.infofolga.service;
 
 import com.infoway.infofolga.dto.SolicitacaoDto;
+import com.infoway.infofolga.model.Gerente;
 import com.infoway.infofolga.model.Solicitacao;
 import com.infoway.infofolga.model.StatusSolicitation;
 import com.infoway.infofolga.repository.FuncionarioRepository;
+import com.infoway.infofolga.repository.GerenteRepository; // <-- IMPORT ADICIONADO AQUI
 import com.infoway.infofolga.repository.SolicitacaoRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,11 +19,15 @@ public class GerenciaSolicitacaoService {
 
     private final SolicitacaoRepository solicitacaoRepository;
     private final FuncionarioRepository funcionarioRepository;
+    private final GerenteRepository gerenteRepository; // <-- VARIÁVEL ADICIONADA AQUI
 
+    // <-- CONSTRUTOR ATUALIZADO PARA RECEBER O REPOSITÓRIO DO GERENTE
     public GerenciaSolicitacaoService(SolicitacaoRepository solicitacaoRepository,
-                                      FuncionarioRepository funcionarioRepository) {
+                                      FuncionarioRepository funcionarioRepository,
+                                      GerenteRepository gerenteRepository) {
         this.solicitacaoRepository = solicitacaoRepository;
         this.funcionarioRepository = funcionarioRepository;
+        this.gerenteRepository = gerenteRepository;
     }
 
     public List<SolicitacaoDto> listarSolicitacoes() {
@@ -43,10 +49,20 @@ public class GerenciaSolicitacaoService {
         Solicitacao solicitacao = solicitacaoRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitação não encontrada."));
 
-        validarAutoAprovacao(solicitacao); // <-- Verificação adicionada
+        validarAutoAprovacao(solicitacao);
+
+        // 1. Pega o CPF de quem fez a requisição através do Token JWT
+        String cpfLogado = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        // 2. Busca o perfil de Gerente dessa pessoa no banco de dados
+        Gerente gerenteAprovador = gerenteRepository.findByCpf(cpfLogado)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Aprovador não encontrado ou sem permissão."));
 
         solicitacao.setStatus(StatusSolicitation.APROVADA);
         solicitacao.setMotivoResposta(null);
+
+        // 3. Salva quem aprovou a folga!
+        solicitacao.setGerente(gerenteAprovador);
 
         return new SolicitacaoDto(solicitacaoRepository.save(solicitacao));
     }
@@ -55,10 +71,17 @@ public class GerenciaSolicitacaoService {
         Solicitacao solicitacao = solicitacaoRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitação não encontrada."));
 
-        validarAutoAprovacao(solicitacao); // <-- Verificação adicionada
+        validarAutoAprovacao(solicitacao);
+
+        // Adicionada a mesma lógica para registrar quem rejeitou!
+        String cpfLogado = SecurityContextHolder.getContext().getAuthentication().getName();
+        Gerente gerenteAprovador = gerenteRepository.findByCpf(cpfLogado)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Aprovador não encontrado ou sem permissão."));
 
         solicitacao.setStatus(StatusSolicitation.REJEITADA);
         solicitacao.setMotivoResposta(motivo);
+
+        solicitacao.setGerente(gerenteAprovador);
 
         return new SolicitacaoDto(solicitacaoRepository.save(solicitacao));
     }
@@ -70,7 +93,6 @@ public class GerenciaSolicitacaoService {
         solicitacaoRepository.deleteById(id);
     }
 
-    // Lógica injetada para garantir a segurança da operação
     private void validarAutoAprovacao(Solicitacao solicitacao) {
         String cpfLogado = SecurityContextHolder.getContext().getAuthentication().getName();
         if (solicitacao.getGerente() != null && solicitacao.getGerente().getCpf().equals(cpfLogado)) {
