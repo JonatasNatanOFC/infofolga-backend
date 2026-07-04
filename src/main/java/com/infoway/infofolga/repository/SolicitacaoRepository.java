@@ -1,8 +1,10 @@
 package com.infoway.infofolga.repository;
 
+import com.infoway.infofolga.model.Gerente;
 import com.infoway.infofolga.model.Solicitacao;
 import com.infoway.infofolga.model.StatusSolicitation;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -10,6 +12,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface SolicitacaoRepository extends JpaRepository<Solicitacao, Long> {
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Solicitacao s SET s.funcionario = null, s.solicitanteGerente = :gerente WHERE s.funcionario.id = :funcionarioId")
+    void transferirHistoricoParaGerente(@Param("funcionarioId") Long funcionarioId, @Param("gerente") Gerente gerente);
 
     long countByStatus(StatusSolicitation status);
 

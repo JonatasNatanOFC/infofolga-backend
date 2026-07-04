@@ -4,7 +4,6 @@ import com.infoway.infofolga.dto.CadastroFuncionarioDto;
 import com.infoway.infofolga.dto.UsuarioDto;
 import com.infoway.infofolga.model.Funcionario;
 import com.infoway.infofolga.model.Gerente;
-import com.infoway.infofolga.model.Solicitacao;
 import com.infoway.infofolga.repository.FuncionarioRepository;
 import com.infoway.infofolga.repository.GerenteRepository;
 import com.infoway.infofolga.repository.SolicitacaoRepository;
@@ -82,7 +81,6 @@ public class GerenciaFuncionarioService {
         }
     }
 
-    // A ANOTAÇÃO MÁGICA QUE RESOLVE A PERDA DE DADOS NO BANCO:
     @Transactional
     public void promoverParaGerente(Long funcionarioId) {
         Funcionario funcionario = funcionarioRepository.findById(funcionarioId)
@@ -101,12 +99,7 @@ public class GerenciaFuncionarioService {
 
         Gerente gerenteSalvo = gerenteRepository.save(novoGerente);
 
-        List<Solicitacao> historico = solicitacaoRepository.findByFuncionarioId(funcionarioId);
-        for (Solicitacao sol : historico) {
-            sol.setFuncionario(null);
-            sol.setSolicitanteGerente(gerenteSalvo);
-            solicitacaoRepository.save(sol);
-        }
+        solicitacaoRepository.transferirHistoricoParaGerente(funcionarioId, gerenteSalvo);
 
         funcionarioRepository.delete(funcionario);
     }
