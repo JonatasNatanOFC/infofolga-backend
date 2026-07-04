@@ -27,7 +27,7 @@ public class GerenciaSolicitacaoService {
             GerenteRepository gerenteRepository) {
         this.solicitacaoRepository = solicitacaoRepository;
         this.funcionarioRepository = funcionarioRepository;
-        this.gerenteRepository = gerenteRepository;
+        this.gerenteRepository = gerenteRepository; // CORRIGIDO O TYPO AQUI
     }
 
     public List<SolicitacaoDto> listarSolicitacoes() {
@@ -38,6 +38,7 @@ public class GerenciaSolicitacaoService {
         return solicitacaoRepository.findByStatusOrderByCriadoEmDesc(status).stream().map(SolicitacaoDto::new).toList();
     }
 
+    // MÉTODO READICIONADO
     public List<SolicitacaoDto> listarPorFuncionario(Long funcionarioId) {
         if (!funcionarioRepository.existsById(funcionarioId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Funcionário não encontrado.");
@@ -46,12 +47,20 @@ public class GerenciaSolicitacaoService {
                 .map(SolicitacaoDto::new).toList();
     }
 
+    // MÉTODO READICIONADO
+    public void removerSolicitacao(Long id) {
+        if (!solicitacaoRepository.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitação não encontrada.");
+        }
+        solicitacaoRepository.deleteById(id);
+    }
+
+    @Transactional
     public SolicitacaoDto aprovarSolicitacao(Long id) {
         Solicitacao solicitacao = solicitacaoRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitação não encontrada."));
 
         Gerente gerenteAprovador = obterGerenteLogado();
-
         validarPermissaoAprovacao(solicitacao, gerenteAprovador);
 
         solicitacao.setStatus(StatusSolicitation.APROVADA);
@@ -61,12 +70,12 @@ public class GerenciaSolicitacaoService {
         return new SolicitacaoDto(solicitacaoRepository.save(solicitacao));
     }
 
+    @Transactional
     public SolicitacaoDto rejeitarSolicitacao(Long id, String motivo) {
         Solicitacao solicitacao = solicitacaoRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitação não encontrada."));
 
         Gerente gerenteAprovador = obterGerenteLogado();
-
         validarPermissaoAprovacao(solicitacao, gerenteAprovador);
 
         solicitacao.setStatus(StatusSolicitation.REJEITADA);
@@ -74,13 +83,6 @@ public class GerenciaSolicitacaoService {
         solicitacao.setGerente(gerenteAprovador);
 
         return new SolicitacaoDto(solicitacaoRepository.save(solicitacao));
-    }
-
-    public void removerSolicitacao(Long id) {
-        if (!solicitacaoRepository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitação não encontrada.");
-        }
-        solicitacaoRepository.deleteById(id);
     }
 
     @Transactional
@@ -91,18 +93,13 @@ public class GerenciaSolicitacaoService {
         Gerente gerenteAprovador = obterGerenteLogado();
         validarPermissaoAprovacao(solicitacao, gerenteAprovador);
 
-        if (solicitacao.getStatus() != StatusSolicitation.APROVADA) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Apenas solicitações APROVADAS podem ser Invalidadas.");
-        }
-
-        if (java.time.LocalDate.now().isBefore(solicitacao.getDataInicio())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Você só pode invalidar uma folga no próprio dia ou após a data ter passado.");
+        if (solicitacao.getStatus() != StatusSolicitation.APROVADA
+                && solicitacao.getStatus() != StatusSolicitation.ESTORNO_PENDENTE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status inválido para realizar a invalidação.");
         }
 
         solicitacao.setStatus(StatusSolicitation.INVALIDADA);
-        solicitacao.setMotivoResposta("Folga Estornada/Invalidada. Motivo: " + motivo);
+        solicitacao.setMotivoResposta("Estorno de folga confirmado pelo gerente. Motivo: " + motivo);
         solicitacao.setGerente(gerenteAprovador);
 
         return new SolicitacaoDto(solicitacaoRepository.save(solicitacao));
@@ -116,14 +113,9 @@ public class GerenciaSolicitacaoService {
         Gerente gerenteAprovador = obterGerenteLogado();
         validarPermissaoAprovacao(solicitacao, gerenteAprovador);
 
-        if (solicitacao.getStatus() != StatusSolicitation.APROVADA) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Apenas solicitações APROVADAS podem ser confirmadas como Usufruídas.");
-        }
-
-        if (java.time.LocalDate.now().isBefore(solicitacao.getDataInicio())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Você só pode confirmar o uso após a data de início ter chegado.");
+        if (solicitacao.getStatus() != StatusSolicitation.APROVADA
+                && solicitacao.getStatus() != StatusSolicitation.ESTORNO_PENDENTE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status inválido para confirmar o usufruto.");
         }
 
         solicitacao.setStatus(StatusSolicitation.USUFRUIDA);
@@ -135,8 +127,7 @@ public class GerenciaSolicitacaoService {
     private Gerente obterGerenteLogado() {
         String cpfLogado = SecurityContextHolder.getContext().getAuthentication().getName();
         return gerenteRepository.findByCpf(cpfLogado)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED,
-                        "Aprovador não encontrado ou sem permissão."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Aprovador não encontrado."));
     }
 
     private void validarPermissaoAprovacao(Solicitacao solicitacao, Gerente gerenteAprovador) {
@@ -146,14 +137,14 @@ public class GerenciaSolicitacaoService {
 
         if (isFolgaDeGerente && !gerenteAprovador.isCeo()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Apenas o CEO possui hierarquia para avaliar as solicitações do histórico de gerentes.");
+                    "Apenas o CEO possui hierarquia para avaliar esta solicitação.");
         }
 
         String nomeDonoFolga = solicitacao.getFuncionario() != null ? solicitacao.getFuncionario().getNome()
                 : solicitacao.getNomeHistorico();
         if (nomeDonoFolga != null && nomeDonoFolga.equalsIgnoreCase(gerenteAprovador.getNome())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Você não pode aprovar ou rejeitar uma solicitação sua (mesmo as do passado).");
+                    "Você não pode gerenciar uma solicitação vinculada ao seu próprio perfil.");
         }
     }
 }

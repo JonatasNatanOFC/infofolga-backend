@@ -5,5 +5,6 @@ public enum StatusSolicitation {
     APROVADA,
     REJEITADA,
     INVALIDADA, 
-    USUFRUIDA
+    USUFRUIDA,
+    ESTORNO_PENDENTE
 }
