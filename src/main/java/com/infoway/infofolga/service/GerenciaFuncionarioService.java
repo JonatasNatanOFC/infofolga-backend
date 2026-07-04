@@ -4,6 +4,7 @@ import com.infoway.infofolga.dto.CadastroFuncionarioDto;
 import com.infoway.infofolga.dto.UsuarioDto;
 import com.infoway.infofolga.model.Funcionario;
 import com.infoway.infofolga.model.Gerente;
+import com.infoway.infofolga.model.Solicitacao;
 import com.infoway.infofolga.repository.FuncionarioRepository;
 import com.infoway.infofolga.repository.GerenteRepository;
 import com.infoway.infofolga.repository.SolicitacaoRepository;
@@ -97,11 +98,19 @@ public class GerenciaFuncionarioService {
         novoGerente.setStatus("ativo");
         novoGerente.setCeo(false);
 
-        Gerente gerenteSalvo = gerenteRepository.save(novoGerente);
+        Gerente gerenteSalvo = gerenteRepository.saveAndFlush(novoGerente);
 
-        solicitacaoRepository.transferirHistoricoParaGerente(funcionarioId, gerenteSalvo);
+        List<Solicitacao> historico = solicitacaoRepository.findByFuncionarioId(funcionarioId);
+
+        for (Solicitacao sol : historico) {
+            sol.setFuncionario(null);
+            sol.setSolicitanteGerente(gerenteSalvo);
+        }
+
+        solicitacaoRepository.saveAllAndFlush(historico);
 
         funcionarioRepository.delete(funcionario);
+        funcionarioRepository.flush();
     }
 
     public void removerFuncionario(Long id) {
