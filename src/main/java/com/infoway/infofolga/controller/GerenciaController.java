@@ -2,6 +2,7 @@ package com.infoway.infofolga.controller;
 
 import com.infoway.infofolga.dto.GerentePayload;
 import com.infoway.infofolga.service.GerenciaAdministracaoService;
+import com.infoway.infofolga.service.GerenciaFuncionarioService;
 import com.infoway.infofolga.repository.GerenteRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,10 +18,14 @@ import java.util.stream.Collectors;
 public class GerenciaController {
 
     private final GerenciaAdministracaoService adminService;
+    private final GerenciaFuncionarioService gerenciaFuncionarioService;
     private final GerenteRepository gerenteRepository;
 
-    public GerenciaController(GerenciaAdministracaoService adminService, GerenteRepository gerenteRepository) {
+    public GerenciaController(GerenciaAdministracaoService adminService,
+            GerenciaFuncionarioService gerenciaFuncionarioService,
+            GerenteRepository gerenteRepository) {
         this.adminService = adminService;
+        this.gerenciaFuncionarioService = gerenciaFuncionarioService;
         this.gerenteRepository = gerenteRepository;
     }
 
@@ -39,7 +44,6 @@ public class GerenciaController {
                     dto.put("cargo", g.getCargo());
                     dto.put("setor", g.getSetor());
                     dto.put("foto", g.getFoto());
-
                     return dto;
                 })
                 .collect(Collectors.toList());
@@ -55,7 +59,7 @@ public class GerenciaController {
 
     @PutMapping("/funcionarios/{id}/promover")
     public ResponseEntity<Void> promoverFuncionario(@PathVariable Long id) {
-        adminService.promoverParaGerente(id);
+        gerenciaFuncionarioService.promoverParaGerente(id);
         return ResponseEntity.ok().build();
     }
 

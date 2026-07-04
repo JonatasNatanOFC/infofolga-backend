@@ -41,7 +41,7 @@ public class FuncionarioSolicitacaoController {
         Optional<Gerente> optGerente = gerenteRepository.findByCpf(authentication.getName());
         if (optGerente.isPresent()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Acesso Negado. Apenas funcionários podem solicitar folgas.");
+                    "Acesso Negado. Apenas funcionários podem solicitar.");
         }
 
         Funcionario funcionario = funcionarioService.getFuncionarioAutenticado(authentication.getPrincipal());
@@ -53,7 +53,7 @@ public class FuncionarioSolicitacaoController {
     public ResponseEntity<List<SolicitacaoDto>> listarMinhas(Authentication authentication) {
         Optional<Gerente> optGerente = gerenteRepository.findByCpf(authentication.getName());
         if (optGerente.isPresent()) {
-            return ResponseEntity.ok(List.of()); // Gerente não lista folgas próprias aqui
+            return ResponseEntity.ok(List.of());
         }
 
         Funcionario funcionario = funcionarioService.getFuncionarioAutenticado(authentication.getPrincipal());

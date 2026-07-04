@@ -27,7 +27,7 @@ public class GerenciaSolicitacaoService {
             GerenteRepository gerenteRepository) {
         this.solicitacaoRepository = solicitacaoRepository;
         this.funcionarioRepository = funcionarioRepository;
-        this.gerenteRepository = gerenteRepository; // CORRIGIDO O TYPO AQUI
+        this.gerenteRepository = gerenteRepository;
     }
 
     public List<SolicitacaoDto> listarSolicitacoes() {
@@ -38,7 +38,6 @@ public class GerenciaSolicitacaoService {
         return solicitacaoRepository.findByStatusOrderByCriadoEmDesc(status).stream().map(SolicitacaoDto::new).toList();
     }
 
-    // MÉTODO READICIONADO
     public List<SolicitacaoDto> listarPorFuncionario(Long funcionarioId) {
         if (!funcionarioRepository.existsById(funcionarioId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Funcionário não encontrado.");
@@ -47,7 +46,6 @@ public class GerenciaSolicitacaoService {
                 .map(SolicitacaoDto::new).toList();
     }
 
-    // MÉTODO READICIONADO
     public void removerSolicitacao(Long id) {
         if (!solicitacaoRepository.existsById(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitação não encontrada.");
@@ -95,7 +93,7 @@ public class GerenciaSolicitacaoService {
 
         if (solicitacao.getStatus() != StatusSolicitation.APROVADA
                 && solicitacao.getStatus() != StatusSolicitation.ESTORNO_PENDENTE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status inválido para realizar a invalidação.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status inválido para estorno.");
         }
 
         solicitacao.setStatus(StatusSolicitation.INVALIDADA);
@@ -115,7 +113,7 @@ public class GerenciaSolicitacaoService {
 
         if (solicitacao.getStatus() != StatusSolicitation.APROVADA
                 && solicitacao.getStatus() != StatusSolicitation.ESTORNO_PENDENTE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status inválido para confirmar o usufruto.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status inválido para confirmar uso.");
         }
 
         solicitacao.setStatus(StatusSolicitation.USUFRUIDA);
@@ -144,7 +142,7 @@ public class GerenciaSolicitacaoService {
                 : solicitacao.getNomeHistorico();
         if (nomeDonoFolga != null && nomeDonoFolga.equalsIgnoreCase(gerenteAprovador.getNome())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Você não pode gerenciar uma solicitação vinculada ao seu próprio perfil.");
+                    "Você não pode gerenciar solicitações do seu próprio perfil.");
         }
     }
 }

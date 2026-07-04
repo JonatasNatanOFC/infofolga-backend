@@ -85,14 +85,14 @@ public class FuncionarioSolicitacaoService {
 
         if (solicitacao.getStatus() != StatusSolicitation.APROVADA) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Apenas solicitações APROVADAS podem ser contestadas.");
+                    "Apenas solicitações APROVADAS podem solicitar estorno.");
         }
 
-        // Validação de data desativada temporariamente para facilitar os testes em
-        // ambiente de desenvolvimento
+        // Bloqueio de data comentado para permitir testes dinâmicos em
+        // homologação/desenvolvimento
         // if (LocalDate.now().isBefore(solicitacao.getDataInicio())) {
         // throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Você só pode
-        // invalidar após a data ter chegado.");
+        // solicitar estorno pós-data.");
         // }
 
         solicitacao.setStatus(StatusSolicitation.ESTORNO_PENDENTE);
@@ -113,14 +113,13 @@ public class FuncionarioSolicitacaoService {
 
         if (solicitacao.getStatus() != StatusSolicitation.APROVADA) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Apenas solicitações APROVADAS podem ser marcadas como usufruídas.");
+                    "Apenas solicitações APROVADAS podem ser dadas como usufruídas.");
         }
 
-        // Validação de data desativada temporariamente para facilitar os testes em
-        // ambiente de desenvolvimento
+        // Bloqueio de data comentado para testes rápidos
         // if (LocalDate.now().isBefore(solicitacao.getDataInicio())) {
         // throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Você só pode
-        // confirmar o uso após a data ter chegado.");
+        // confirmar após a data ter chegado.");
         // }
 
         solicitacao.setStatus(StatusSolicitation.USUFRUIDA);
