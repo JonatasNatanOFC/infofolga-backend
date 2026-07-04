@@ -34,11 +34,11 @@ public record SolicitacaoDto(
                                 s.getFuncionario() != null ? s.getFuncionario().getId()
                                                 : (s.getSolicitanteGerente() != null ? s.getSolicitanteGerente().getId()
                                                                 : null),
-                                // Fallback seguro caso algo falhe na leitura do nome
+
                                 s.getFuncionario() != null ? s.getFuncionario().getNome()
                                                 : (s.getSolicitanteGerente() != null
                                                                 ? s.getSolicitanteGerente().getNome()
-                                                                : "Usuário Promovido"),
+                                                                : "Desconhecido"),
                                 s.getFuncionario() != null ? s.getFuncionario().getFoto()
                                                 : (s.getSolicitanteGerente() != null
                                                                 ? s.getSolicitanteGerente().getFoto()
@@ -46,7 +46,7 @@ public record SolicitacaoDto(
                                 s.getFuncionario() != null ? s.getFuncionario().getSetor()
                                                 : (s.getSolicitanteGerente() != null
                                                                 ? s.getSolicitanteGerente().getSetor()
-                                                                : "Gerência"),
+                                                                : "Sem Setor"),
                                 s.getFuncionario() != null ? s.getFuncionario().getCargo()
                                                 : (s.getSolicitanteGerente() != null
                                                                 ? s.getSolicitanteGerente().getCargo()

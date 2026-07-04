@@ -3,7 +3,6 @@ package com.infoway.infofolga.service;
 import com.infoway.infofolga.dto.CriarSolicitacaoDto;
 import com.infoway.infofolga.dto.SolicitacaoDto;
 import com.infoway.infofolga.model.Funcionario;
-import com.infoway.infofolga.model.Gerente;
 import com.infoway.infofolga.model.Solicitacao;
 import com.infoway.infofolga.model.StatusSolicitation;
 import com.infoway.infofolga.model.TipoSolicitacao;
@@ -44,32 +43,13 @@ public class FuncionarioSolicitacaoService {
         return new SolicitacaoDto(salva);
     }
 
-    public SolicitacaoDto criarSolicitacaoGerente(CriarSolicitacaoDto dto, Gerente gerenteSolicitante) {
-        validarDatas(dto);
-
-        if (dto.tipo() == TipoSolicitacao.FERIAS) {
-            validarRegrasDeFerias(dto, gerenteSolicitante.getId(), false);
-        }
-
-        Solicitacao solicitacao = new Solicitacao();
-        solicitacao.setSolicitanteGerente(gerenteSolicitante);
-        solicitacao.setTipo(dto.tipo());
-        solicitacao.setDataInicio(dto.dataInicio());
-        solicitacao.setDataFim(dto.dataFim());
-        solicitacao.setMotivo(dto.motivo());
-        solicitacao.setStatus(StatusSolicitation.PENDENTE);
-
-        Solicitacao salva = solicitacaoRepository.save(solicitacao);
-        return new SolicitacaoDto(salva);
-    }
-
     public List<SolicitacaoDto> listarMinhasSolicitacoes(Long funcionarioId) {
         return solicitacaoRepository.findByFuncionarioIdOrderByCriadoEmDesc(funcionarioId)
                 .stream()
                 .map(SolicitacaoDto::new)
                 .toList();
     }
-
+    
     public List<SolicitacaoDto> listarMinhasSolicitacoesGerente(Long gerenteId) {
         return solicitacaoRepository.findBySolicitanteGerenteIdOrderByCriadoEmDesc(gerenteId)
                 .stream()

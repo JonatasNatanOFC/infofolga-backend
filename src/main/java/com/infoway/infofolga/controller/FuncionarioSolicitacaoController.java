@@ -40,13 +40,8 @@ public class FuncionarioSolicitacaoController {
             Authentication authentication) {
         Optional<Gerente> optGerente = gerenteRepository.findByCpf(authentication.getName());
         if (optGerente.isPresent()) {
-            Gerente gerente = optGerente.get();
-            if (gerente.isCeo()) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "O CEO possui livre gestão de tempo e não precisa solicitar folgas no sistema.");
-            }
-            SolicitacaoDto criada = funcionarioSolicitacaoService.criarSolicitacaoGerente(dto, gerente);
-            return ResponseEntity.status(HttpStatus.CREATED).body(criada);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Acesso Negado. Apenas funcionários podem solicitar folgas e férias no sistema.");
         }
 
         Funcionario funcionario = funcionarioService.getFuncionarioAutenticado(authentication.getPrincipal());
