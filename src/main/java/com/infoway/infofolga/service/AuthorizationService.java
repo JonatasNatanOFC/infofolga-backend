@@ -4,7 +4,6 @@ import com.infoway.infofolga.model.Funcionario;
 import com.infoway.infofolga.model.Gerente;
 import com.infoway.infofolga.repository.FuncionarioRepository;
 import com.infoway.infofolga.repository.GerenteRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -15,11 +14,13 @@ import java.util.Optional;
 @Service
 public class AuthorizationService implements UserDetailsService {
 
-    @Autowired
-    private FuncionarioRepository funcionarioRepository;
+    private final FuncionarioRepository funcionarioRepository;
+    private final GerenteRepository gerenteRepository;
 
-    @Autowired
-    private GerenteRepository gerenteRepository;
+    public AuthorizationService(FuncionarioRepository funcionarioRepository, GerenteRepository gerenteRepository) {
+        this.funcionarioRepository = funcionarioRepository;
+        this.gerenteRepository = gerenteRepository;
+    }
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -32,7 +33,7 @@ public class AuthorizationService implements UserDetailsService {
         if (gerente.isPresent()) {
             return gerente.get();
         }
-        
+
         throw new UsernameNotFoundException("Usuário ou senha inválidos.");
     }
 }

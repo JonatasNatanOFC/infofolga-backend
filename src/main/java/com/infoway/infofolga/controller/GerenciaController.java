@@ -1,7 +1,6 @@
 package com.infoway.infofolga.controller;
 
 import com.infoway.infofolga.dto.GerentePayload;
-import com.infoway.infofolga.model.Gerente;
 import com.infoway.infofolga.service.GerenciaAdministracaoService;
 import com.infoway.infofolga.repository.GerenteRepository;
 import org.springframework.http.HttpStatus;
@@ -71,7 +70,7 @@ public class GerenciaController {
         adminService.inativarGerente(id);
         return ResponseEntity.ok().build();
     }
-    
+
     @PutMapping("/gerentes/{id}")
     public ResponseEntity<Void> atualizarGerente(@PathVariable Long id, @RequestBody GerentePayload payload) {
         adminService.atualizarGerente(id, payload);

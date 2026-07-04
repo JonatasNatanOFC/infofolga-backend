@@ -9,6 +9,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -27,8 +28,8 @@ public class SecurityFilter extends OncePerRequestFilter {
     private final GerenteRepository gerenteRepository;
 
     public SecurityFilter(TokenService tokenService,
-                          FuncionarioRepository funcionarioRepository,
-                          GerenteRepository gerenteRepository) {
+            FuncionarioRepository funcionarioRepository,
+            GerenteRepository gerenteRepository) {
         this.tokenService = tokenService;
         this.funcionarioRepository = funcionarioRepository;
         this.gerenteRepository = gerenteRepository;
@@ -36,68 +37,46 @@ public class SecurityFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain
-    ) throws ServletException, IOException {
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain) throws ServletException, IOException {
 
         try {
             String token = recuperarToken(request);
 
-            System.out.println("\n=== SECURITY FILTER ===");
-            System.out.println("PATH: " + request.getRequestURI());
-            System.out.println("TOKEN PRESENTE: " + (token != null));
-
             if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 String cpfLimpo = tokenService.validarToken(token);
-                System.out.println("CPF TOKEN: " + cpfLimpo);
 
                 if (cpfLimpo != null && !cpfLimpo.isBlank()) {
                     Optional<Funcionario> funcionarioOpt = funcionarioRepository.findByCpf(cpfLimpo);
                     Optional<Gerente> gerenteOpt = gerenteRepository.findByCpf(cpfLimpo);
 
                     UserDetails usuarioLogado = null;
-                    String tipoConta = "DESCONHECIDO";
 
                     if (funcionarioOpt.isPresent()) {
                         usuarioLogado = funcionarioOpt.get();
-                        tipoConta = "FUNCIONARIO";
                     } else if (gerenteOpt.isPresent()) {
                         usuarioLogado = gerenteOpt.get();
-                        tipoConta = "GERENTE";
                     }
 
                     if (usuarioLogado != null) {
-                        UsernamePasswordAuthenticationToken authentication =
-                                new UsernamePasswordAuthenticationToken(
-                                        usuarioLogado,
-                                        null,
-                                        usuarioLogado.getAuthorities()
-                                );
+                        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                                usuarioLogado,
+                                null,
+                                usuarioLogado.getAuthorities());
 
                         authentication.setDetails(
-                                new WebAuthenticationDetailsSource().buildDetails(request)
-                        );
+                                new WebAuthenticationDetailsSource().buildDetails(request));
 
                         SecurityContextHolder.getContext().setAuthentication(authentication);
-
-                        System.out.println("TIPO DA CONTA: " + tipoConta);
-                        System.out.println("CPF BANCO: " + usuarioLogado.getUsername());
-                        System.out.println("AUTHORITIES SETADAS: " + usuarioLogado.getAuthorities());
-                        System.out.println("STATUS: " + (usuarioLogado.isEnabled() ? "ATIVO" : "INATIVO"));
                     } else {
-                        System.out.println("USUARIO NAO ENCONTRADO EM NENHUMA TABELA");
                         SecurityContextHolder.clearContext();
                     }
                 } else {
-                    System.out.println("TOKEN INVALIDO OU EXPIRADO");
                     SecurityContextHolder.clearContext();
                 }
             }
-
-            System.out.println("=======================\n");
         } catch (Exception e) {
-            System.out.println("ERRO NO SECURITY FILTER: " + e.getMessage());
             e.printStackTrace();
             SecurityContextHolder.clearContext();
         }

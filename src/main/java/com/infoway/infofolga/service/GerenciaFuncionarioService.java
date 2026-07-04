@@ -82,6 +82,7 @@ public class GerenciaFuncionarioService {
         }
     }
 
+    // A ANOTAÇÃO MÁGICA QUE RESOLVE A PERDA DE DADOS NO BANCO:
     @Transactional
     public void promoverParaGerente(Long funcionarioId) {
         Funcionario funcionario = funcionarioRepository.findById(funcionarioId)
