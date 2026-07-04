@@ -10,6 +10,7 @@ import com.infoway.infofolga.repository.SolicitacaoRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -82,6 +83,54 @@ public class GerenciaSolicitacaoService {
         solicitacaoRepository.deleteById(id);
     }
 
+    @Transactional
+    public SolicitacaoDto invalidarSolicitacao(Long id, String motivo) {
+        Solicitacao solicitacao = solicitacaoRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitação não encontrada."));
+
+        Gerente gerenteAprovador = obterGerenteLogado();
+        validarPermissaoAprovacao(solicitacao, gerenteAprovador);
+
+        if (solicitacao.getStatus() != StatusSolicitation.APROVADA) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Apenas solicitações APROVADAS podem ser Invalidadas.");
+        }
+
+        if (java.time.LocalDate.now().isBefore(solicitacao.getDataInicio())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Você só pode invalidar uma folga no próprio dia ou após a data ter passado.");
+        }
+
+        solicitacao.setStatus(StatusSolicitation.INVALIDADA);
+        solicitacao.setMotivoResposta("Folga Estornada/Invalidada. Motivo: " + motivo);
+        solicitacao.setGerente(gerenteAprovador);
+
+        return new SolicitacaoDto(solicitacaoRepository.save(solicitacao));
+    }
+
+    @Transactional
+    public SolicitacaoDto usufruirSolicitacao(Long id) {
+        Solicitacao solicitacao = solicitacaoRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitação não encontrada."));
+
+        Gerente gerenteAprovador = obterGerenteLogado();
+        validarPermissaoAprovacao(solicitacao, gerenteAprovador);
+
+        if (solicitacao.getStatus() != StatusSolicitation.APROVADA) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Apenas solicitações APROVADAS podem ser confirmadas como Usufruídas.");
+        }
+
+        if (java.time.LocalDate.now().isBefore(solicitacao.getDataInicio())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Você só pode confirmar o uso após a data de início ter chegado.");
+        }
+
+        solicitacao.setStatus(StatusSolicitation.USUFRUIDA);
+        solicitacao.setGerente(gerenteAprovador);
+
+        return new SolicitacaoDto(solicitacaoRepository.save(solicitacao));
+    }
 
     private Gerente obterGerenteLogado() {
         String cpfLogado = SecurityContextHolder.getContext().getAuthentication().getName();

@@ -27,8 +27,7 @@ public class GerenciaSolicitacaoController {
 
     @GetMapping("/solicitacoes/status")
     public ResponseEntity<List<SolicitacaoDto>> getSolicitacoesPorStatus(
-            @RequestParam StatusSolicitation status
-    ) {
+            @RequestParam StatusSolicitation status) {
         return ResponseEntity.ok(gerenciaSolicitacaoService.listarPorStatus(status));
     }
 
@@ -45,16 +44,26 @@ public class GerenciaSolicitacaoController {
     @PutMapping("/solicitacoes/{id}/rejeitar")
     public ResponseEntity<SolicitacaoDto> rejeitarSolicitacao(
             @PathVariable Long id,
-            @RequestBody @Valid RejeitarSolicitacaoDto dto
-    ) {
+            @RequestBody @Valid RejeitarSolicitacaoDto dto) {
         return ResponseEntity.ok(
-                gerenciaSolicitacaoService.rejeitarSolicitacao(id, dto.motivo())
-        );
+                gerenciaSolicitacaoService.rejeitarSolicitacao(id, dto.motivo()));
     }
 
     @DeleteMapping("/solicitacoes/{id}")
     public ResponseEntity<Void> removerSolicitacao(@PathVariable Long id) {
         gerenciaSolicitacaoService.removerSolicitacao(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/invalidar")
+    public ResponseEntity<SolicitacaoDto> invalidarSolicitacao(@PathVariable Long id,
+            @RequestBody(required = false) RejeitarSolicitacaoDto dto) {
+        String motivo = (dto != null && dto.motivo() != null) ? dto.motivo() : "Cancelada pelo sistema pós-data";
+        return ResponseEntity.ok(gerenciaSolicitacaoService.invalidarSolicitacao(id, motivo));
+    }
+
+    @PutMapping("/{id}/usufruir")
+    public ResponseEntity<SolicitacaoDto> usufruirSolicitacao(@PathVariable Long id) {
+        return ResponseEntity.ok(gerenciaSolicitacaoService.usufruirSolicitacao(id));
     }
 }

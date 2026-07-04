@@ -115,11 +115,24 @@ public class GerenciaFuncionarioService {
         funcionarioRepository.flush();
     }
 
+    @Transactional
     public void removerFuncionario(Long id) {
-        if (!funcionarioRepository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Funcionário não encontrado.");
+        Funcionario funcionario = funcionarioRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Funcionário não encontrado."));
+
+        List<Solicitacao> historico = solicitacaoRepository.findByFuncionarioId(id);
+        for (Solicitacao sol : historico) {
+            sol.setNomeHistorico(funcionario.getNome());
+            sol.setCargoHistorico(funcionario.getCargo() + " (Removido)");
+            sol.setSetorHistorico(funcionario.getSetor());
+            sol.setFotoHistorico(funcionario.getFoto());
+
+            sol.setFuncionario(null);
         }
-        funcionarioRepository.deleteById(id);
+        solicitacaoRepository.saveAllAndFlush(historico);
+
+        funcionarioRepository.delete(funcionario);
+        funcionarioRepository.flush();
     }
 
     private void atualizarDadosFuncionario(Funcionario funcionario, CadastroFuncionarioDto dto) {
