@@ -20,13 +20,9 @@ public interface SolicitacaoRepository extends JpaRepository<Solicitacao, Long> 
 
     List<Solicitacao> findByFuncionarioId(Long funcionarioId);
 
-    List<Solicitacao> findBySolicitanteGerenteId(Long gerenteId);
-
     List<Solicitacao> findByGerenteId(Long gerenteId);
 
     List<Solicitacao> findByFuncionarioIdOrderByCriadoEmDesc(Long funcionarioId);
-
-    List<Solicitacao> findBySolicitanteGerenteIdOrderByCriadoEmDesc(Long gerenteId);
 
     List<Solicitacao> findByStatusOrderByCriadoEmDesc(StatusSolicitation status);
 
