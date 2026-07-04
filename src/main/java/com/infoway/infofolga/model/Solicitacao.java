@@ -18,21 +18,31 @@ public class Solicitacao {
 
     @Setter
     @ManyToOne
-    @JoinColumn(name = "funcionario_id", nullable = true)
+    @JoinColumn(name = "funcionario_id")
     @JsonIgnoreProperties({ "senha", "solicitacoes", "foto" })
     private Funcionario funcionario;
-
-    @Setter
-    @ManyToOne
-    @JoinColumn(name = "solicitante_gerente_id", nullable = true)
-    @JsonIgnoreProperties({ "senha", "foto" })
-    private Gerente solicitanteGerente;
 
     @Setter
     @ManyToOne
     @JoinColumn(name = "gerente_id")
     @JsonIgnoreProperties({ "senha", "solicitacoes", "foto" })
     private Gerente gerente;
+
+    @Setter
+    @Column(name = "nome_historico")
+    private String nomeHistorico;
+
+    @Setter
+    @Column(name = "cargo_historico")
+    private String cargoHistorico;
+
+    @Setter
+    @Column(name = "setor_historico")
+    private String setorHistorico;
+
+    @Setter
+    @Column(name = "foto_historico", columnDefinition = "TEXT")
+    private String fotoHistorico;
 
     @Setter
     @Enumerated(EnumType.STRING)

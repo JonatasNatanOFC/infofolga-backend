@@ -41,7 +41,7 @@ public class FuncionarioSolicitacaoController {
         Optional<Gerente> optGerente = gerenteRepository.findByCpf(authentication.getName());
         if (optGerente.isPresent()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Acesso Negado. Apenas funcionários podem solicitar folgas e férias no sistema.");
+                    "Acesso Negado. Apenas funcionários podem solicitar folgas.");
         }
 
         Funcionario funcionario = funcionarioService.getFuncionarioAutenticado(authentication.getPrincipal());
@@ -53,8 +53,7 @@ public class FuncionarioSolicitacaoController {
     public ResponseEntity<List<SolicitacaoDto>> listarMinhas(Authentication authentication) {
         Optional<Gerente> optGerente = gerenteRepository.findByCpf(authentication.getName());
         if (optGerente.isPresent()) {
-            return ResponseEntity
-                    .ok(funcionarioSolicitacaoService.listarMinhasSolicitacoesGerente(optGerente.get().getId()));
+            return ResponseEntity.ok(List.of());
         }
 
         Funcionario funcionario = funcionarioService.getFuncionarioAutenticado(authentication.getPrincipal());
@@ -65,12 +64,11 @@ public class FuncionarioSolicitacaoController {
     public ResponseEntity<Void> cancelar(@PathVariable Long id, Authentication authentication) {
         Optional<Gerente> optGerente = gerenteRepository.findByCpf(authentication.getName());
         if (optGerente.isPresent()) {
-            funcionarioSolicitacaoService.cancelarSolicitacao(id, optGerente.get().getId(), true);
-            return ResponseEntity.noContent().build();
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acesso Negado.");
         }
 
         Funcionario funcionario = funcionarioService.getFuncionarioAutenticado(authentication.getPrincipal());
-        funcionarioSolicitacaoService.cancelarSolicitacao(id, funcionario.getId(), false);
+        funcionarioSolicitacaoService.cancelarSolicitacao(id, funcionario.getId());
         return ResponseEntity.noContent().build();
     }
 }

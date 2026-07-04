@@ -28,11 +28,17 @@ public class FuncionarioSolicitacaoService {
         validarDatas(dto);
 
         if (dto.tipo() == TipoSolicitacao.FERIAS) {
-            validarRegrasDeFerias(dto, funcionario.getId(), true);
+            validarRegrasDeFerias(dto, funcionario.getId());
         }
 
         Solicitacao solicitacao = new Solicitacao();
         solicitacao.setFuncionario(funcionario);
+
+        solicitacao.setNomeHistorico(funcionario.getNome());
+        solicitacao.setCargoHistorico(funcionario.getCargo());
+        solicitacao.setSetorHistorico(funcionario.getSetor());
+        solicitacao.setFotoHistorico(funcionario.getFoto());
+
         solicitacao.setTipo(dto.tipo());
         solicitacao.setDataInicio(dto.dataInicio());
         solicitacao.setDataFim(dto.dataFim());
@@ -49,29 +55,14 @@ public class FuncionarioSolicitacaoService {
                 .map(SolicitacaoDto::new)
                 .toList();
     }
-    
-    public List<SolicitacaoDto> listarMinhasSolicitacoesGerente(Long gerenteId) {
-        return solicitacaoRepository.findBySolicitanteGerenteIdOrderByCriadoEmDesc(gerenteId)
-                .stream()
-                .map(SolicitacaoDto::new)
-                .toList();
-    }
 
-    public void cancelarSolicitacao(Long solicitacaoId, Long userId, boolean isGerente) {
+    public void cancelarSolicitacao(Long solicitacaoId, Long userId) {
         Solicitacao solicitacao = solicitacaoRepository.findById(solicitacaoId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Solicitação não encontrada."));
 
-        boolean pertenceAoUsuario = false;
-
-        if (isGerente && solicitacao.getSolicitanteGerente() != null) {
-            pertenceAoUsuario = solicitacao.getSolicitanteGerente().getId().equals(userId);
-        } else if (!isGerente && solicitacao.getFuncionario() != null) {
-            pertenceAoUsuario = solicitacao.getFuncionario().getId().equals(userId);
-        }
-
-        if (!pertenceAoUsuario) {
+        if (solicitacao.getFuncionario() == null || !solicitacao.getFuncionario().getId().equals(userId)) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Você não pode cancelar esta solicitação.");
@@ -121,17 +112,11 @@ public class FuncionarioSolicitacaoService {
         }
     }
 
-    private void validarRegrasDeFerias(CriarSolicitacaoDto dto, Long userId, boolean isFuncionario) {
+    private void validarRegrasDeFerias(CriarSolicitacaoDto dto, Long userId) {
         int anoAtual = dto.dataInicio().getYear();
-
         long diasSolicitados = ChronoUnit.DAYS.between(dto.dataInicio(), dto.dataFim()) + 1;
 
-        List<Solicitacao> historico;
-        if (isFuncionario) {
-            historico = solicitacaoRepository.findByFuncionarioIdOrderByCriadoEmDesc(userId);
-        } else {
-            historico = solicitacaoRepository.findBySolicitanteGerenteIdOrderByCriadoEmDesc(userId);
-        }
+        List<Solicitacao> historico = solicitacaoRepository.findByFuncionarioIdOrderByCriadoEmDesc(userId);
 
         List<Solicitacao> feriasDesteAno = historico.stream()
                 .filter(s -> s.getTipo() == TipoSolicitacao.FERIAS)

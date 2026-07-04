@@ -51,7 +51,6 @@ public class GerenciaSolicitacaoService {
 
         Gerente gerenteAprovador = obterGerenteLogado();
 
-        validarAutoAprovacao(solicitacao, gerenteAprovador);
         validarPermissaoAprovacao(solicitacao, gerenteAprovador);
 
         solicitacao.setStatus(StatusSolicitation.APROVADA);
@@ -67,7 +66,6 @@ public class GerenciaSolicitacaoService {
 
         Gerente gerenteAprovador = obterGerenteLogado();
 
-        validarAutoAprovacao(solicitacao, gerenteAprovador);
         validarPermissaoAprovacao(solicitacao, gerenteAprovador);
 
         solicitacao.setStatus(StatusSolicitation.REJEITADA);
@@ -84,6 +82,7 @@ public class GerenciaSolicitacaoService {
         solicitacaoRepository.deleteById(id);
     }
 
+
     private Gerente obterGerenteLogado() {
         String cpfLogado = SecurityContextHolder.getContext().getAuthentication().getName();
         return gerenteRepository.findByCpf(cpfLogado)
@@ -91,18 +90,21 @@ public class GerenciaSolicitacaoService {
                         "Aprovador não encontrado ou sem permissão."));
     }
 
-    private void validarAutoAprovacao(Solicitacao solicitacao, Gerente gerenteAprovador) {
-        if (solicitacao.getSolicitanteGerente() != null
-                && solicitacao.getSolicitanteGerente().getId().equals(gerenteAprovador.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Você não pode aprovar ou rejeitar a sua própria solicitação.");
-        }
-    }
-
     private void validarPermissaoAprovacao(Solicitacao solicitacao, Gerente gerenteAprovador) {
-        if (solicitacao.getSolicitanteGerente() != null && !gerenteAprovador.isCeo()) {
+        String cargo = solicitacao.getFuncionario() != null ? solicitacao.getFuncionario().getCargo()
+                : solicitacao.getCargoHistorico();
+        boolean isFolgaDeGerente = cargo != null && cargo.toLowerCase().contains("gerente");
+
+        if (isFolgaDeGerente && !gerenteAprovador.isCeo()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Apenas o CEO possui hierarquia para avaliar as solicitações de folgas de gerentes.");
+                    "Apenas o CEO possui hierarquia para avaliar as solicitações do histórico de gerentes.");
+        }
+
+        String nomeDonoFolga = solicitacao.getFuncionario() != null ? solicitacao.getFuncionario().getNome()
+                : solicitacao.getNomeHistorico();
+        if (nomeDonoFolga != null && nomeDonoFolga.equalsIgnoreCase(gerenteAprovador.getNome())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Você não pode aprovar ou rejeitar uma solicitação sua (mesmo as do passado).");
         }
     }
 }

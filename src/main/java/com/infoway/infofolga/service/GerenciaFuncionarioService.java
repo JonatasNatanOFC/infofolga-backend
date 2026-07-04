@@ -98,15 +98,17 @@ public class GerenciaFuncionarioService {
         novoGerente.setStatus("ativo");
         novoGerente.setCeo(false);
 
-        Gerente gerenteSalvo = gerenteRepository.saveAndFlush(novoGerente);
+        gerenteRepository.saveAndFlush(novoGerente);
 
         List<Solicitacao> historico = solicitacaoRepository.findByFuncionarioId(funcionarioId);
-
         for (Solicitacao sol : historico) {
-            sol.setFuncionario(null);
-            sol.setSolicitanteGerente(gerenteSalvo);
-        }
+            sol.setNomeHistorico(funcionario.getNome());
+            sol.setCargoHistorico("Gerente");
+            sol.setSetorHistorico(funcionario.getSetor());
+            sol.setFotoHistorico(funcionario.getFoto());
 
+            sol.setFuncionario(null);
+        }
         solicitacaoRepository.saveAllAndFlush(historico);
 
         funcionarioRepository.delete(funcionario);

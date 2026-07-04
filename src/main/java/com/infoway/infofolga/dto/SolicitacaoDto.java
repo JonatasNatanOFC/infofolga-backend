@@ -31,26 +31,16 @@ public record SolicitacaoDto(
                 this(
                                 s.getId(),
 
-                                s.getFuncionario() != null ? s.getFuncionario().getId()
-                                                : (s.getSolicitanteGerente() != null ? s.getSolicitanteGerente().getId()
-                                                                : null),
+                                s.getFuncionario() != null ? s.getFuncionario().getId() : null,
 
                                 s.getFuncionario() != null ? s.getFuncionario().getNome()
-                                                : (s.getSolicitanteGerente() != null
-                                                                ? s.getSolicitanteGerente().getNome()
+                                                : (s.getNomeHistorico() != null ? s.getNomeHistorico()
                                                                 : "Desconhecido"),
-                                s.getFuncionario() != null ? s.getFuncionario().getFoto()
-                                                : (s.getSolicitanteGerente() != null
-                                                                ? s.getSolicitanteGerente().getFoto()
-                                                                : null),
-                                s.getFuncionario() != null ? s.getFuncionario().getSetor()
-                                                : (s.getSolicitanteGerente() != null
-                                                                ? s.getSolicitanteGerente().getSetor()
-                                                                : "Sem Setor"),
+                                s.getFuncionario() != null ? s.getFuncionario().getFoto() : s.getFotoHistorico(),
+                                s.getFuncionario() != null ? s.getFuncionario().getSetor() : s.getSetorHistorico(),
                                 s.getFuncionario() != null ? s.getFuncionario().getCargo()
-                                                : (s.getSolicitanteGerente() != null
-                                                                ? s.getSolicitanteGerente().getCargo()
-                                                                : "Gerente"),
+                                                : (s.getCargoHistorico() != null ? s.getCargoHistorico()
+                                                                : "Cargo não informado"),
 
                                 s.getGerente() != null ? s.getGerente().getId() : null,
                                 s.getGerente() != null ? s.getGerente().getNome() : null,
