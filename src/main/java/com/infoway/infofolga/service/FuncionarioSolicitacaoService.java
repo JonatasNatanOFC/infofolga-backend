@@ -36,6 +36,7 @@ public class FuncionarioSolicitacaoService {
         Solicitacao solicitacao = new Solicitacao();
         solicitacao.setFuncionario(funcionario);
 
+        // SALVA O SNAPSHOT (Histórico) no momento da criação
         solicitacao.setNomeHistorico(funcionario.getNome());
         solicitacao.setCargoHistorico(funcionario.getCargo());
         solicitacao.setSetorHistorico(funcionario.getSetor());
@@ -79,6 +80,7 @@ public class FuncionarioSolicitacaoService {
         Solicitacao solicitacao = solicitacaoRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitação não encontrada."));
 
+        // Garante que só o próprio funcionário dono da folga consegue invalidar
         if (solicitacao.getFuncionario() == null || !solicitacao.getFuncionario().getId().equals(userId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Esta solicitação não pertence a você.");
         }
@@ -88,10 +90,12 @@ public class FuncionarioSolicitacaoService {
                     "Apenas solicitações APROVADAS podem ser invalidadas.");
         }
 
-        if (LocalDate.now().isBefore(solicitacao.getDataInicio())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Você só pode invalidar após a data ter chegado.");
-        }
+        // BLOQUEIO DESATIVADO TEMPORARIAMENTE PARA FINS DE TESTE! (Basta apagar as //
+        // no futuro para reativar)
+        // if (LocalDate.now().isBefore(solicitacao.getDataInicio())) {
+        // throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Você só pode
+        // invalidar após a data ter chegado.");
+        // }
 
         solicitacao.setStatus(StatusSolicitation.INVALIDADA);
         solicitacao
@@ -114,10 +118,11 @@ public class FuncionarioSolicitacaoService {
                     "Apenas solicitações APROVADAS podem ser marcadas como usufruídas.");
         }
 
-        if (LocalDate.now().isBefore(solicitacao.getDataInicio())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Você só pode confirmar o uso após a data ter chegado.");
-        }
+        // BLOQUEIO DESATIVADO TEMPORARIAMENTE PARA FINS DE TESTE!
+        // if (LocalDate.now().isBefore(solicitacao.getDataInicio())) {
+        // throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Você só pode
+        // confirmar o uso após a data ter chegado.");
+        // }
 
         solicitacao.setStatus(StatusSolicitation.USUFRUIDA);
 
