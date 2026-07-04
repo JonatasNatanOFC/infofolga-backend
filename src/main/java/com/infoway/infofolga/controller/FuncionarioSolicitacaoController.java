@@ -53,7 +53,7 @@ public class FuncionarioSolicitacaoController {
     public ResponseEntity<List<SolicitacaoDto>> listarMinhas(Authentication authentication) {
         Optional<Gerente> optGerente = gerenteRepository.findByCpf(authentication.getName());
         if (optGerente.isPresent()) {
-            return ResponseEntity.ok(List.of());
+            return ResponseEntity.ok(List.of()); // Gerente não lista folgas próprias aqui
         }
 
         Funcionario funcionario = funcionarioService.getFuncionarioAutenticado(authentication.getPrincipal());
@@ -70,5 +70,25 @@ public class FuncionarioSolicitacaoController {
         Funcionario funcionario = funcionarioService.getFuncionarioAutenticado(authentication.getPrincipal());
         funcionarioSolicitacaoService.cancelarSolicitacao(id, funcionario.getId());
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/invalidar")
+    public ResponseEntity<SolicitacaoDto> invalidar(@PathVariable Long id, Authentication authentication) {
+        Optional<Gerente> optGerente = gerenteRepository.findByCpf(authentication.getName());
+        if (optGerente.isPresent())
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acesso Negado.");
+
+        Funcionario funcionario = funcionarioService.getFuncionarioAutenticado(authentication.getPrincipal());
+        return ResponseEntity.ok(funcionarioSolicitacaoService.invalidarSolicitacao(id, funcionario.getId()));
+    }
+
+    @PutMapping("/{id}/usufruir")
+    public ResponseEntity<SolicitacaoDto> usufruir(@PathVariable Long id, Authentication authentication) {
+        Optional<Gerente> optGerente = gerenteRepository.findByCpf(authentication.getName());
+        if (optGerente.isPresent())
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acesso Negado.");
+
+        Funcionario funcionario = funcionarioService.getFuncionarioAutenticado(authentication.getPrincipal());
+        return ResponseEntity.ok(funcionarioSolicitacaoService.usufruirSolicitacao(id, funcionario.getId()));
     }
 }

@@ -9,6 +9,7 @@ import com.infoway.infofolga.model.TipoSolicitacao;
 import com.infoway.infofolga.repository.SolicitacaoRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
@@ -24,6 +25,7 @@ public class FuncionarioSolicitacaoService {
         this.solicitacaoRepository = solicitacaoRepository;
     }
 
+    @Transactional
     public SolicitacaoDto criarSolicitacao(CriarSolicitacaoDto dto, Funcionario funcionario) {
         validarDatas(dto);
 
@@ -56,25 +58,70 @@ public class FuncionarioSolicitacaoService {
                 .toList();
     }
 
+    @Transactional
     public void cancelarSolicitacao(Long solicitacaoId, Long userId) {
         Solicitacao solicitacao = solicitacaoRepository.findById(solicitacaoId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Solicitação não encontrada."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitação não encontrada."));
 
         if (solicitacao.getFuncionario() == null || !solicitacao.getFuncionario().getId().equals(userId)) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Você não pode cancelar esta solicitação.");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Você não pode cancelar esta solicitação.");
         }
 
         if (solicitacao.getStatus() != StatusSolicitation.PENDENTE) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Só é possível cancelar solicitações pendentes.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Só é possível cancelar solicitações pendentes.");
         }
 
         solicitacaoRepository.delete(solicitacao);
+    }
+
+    @Transactional
+    public SolicitacaoDto invalidarSolicitacao(Long id, Long userId) {
+        Solicitacao solicitacao = solicitacaoRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitação não encontrada."));
+
+        if (solicitacao.getFuncionario() == null || !solicitacao.getFuncionario().getId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Esta solicitação não pertence a você.");
+        }
+
+        if (solicitacao.getStatus() != StatusSolicitation.APROVADA) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Apenas solicitações APROVADAS podem ser invalidadas.");
+        }
+
+        if (LocalDate.now().isBefore(solicitacao.getDataInicio())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Você só pode invalidar após a data ter chegado.");
+        }
+
+        solicitacao.setStatus(StatusSolicitation.INVALIDADA);
+        solicitacao
+                .setMotivoResposta("O funcionário declarou que não usufruiu desta folga/férias e o dia foi devolvido.");
+
+        return new SolicitacaoDto(solicitacaoRepository.save(solicitacao));
+    }
+
+    @Transactional
+    public SolicitacaoDto usufruirSolicitacao(Long id, Long userId) {
+        Solicitacao solicitacao = solicitacaoRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitação não encontrada."));
+
+        if (solicitacao.getFuncionario() == null || !solicitacao.getFuncionario().getId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Esta solicitação não pertence a você.");
+        }
+
+        if (solicitacao.getStatus() != StatusSolicitation.APROVADA) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Apenas solicitações APROVADAS podem ser marcadas como usufruídas.");
+        }
+
+        if (LocalDate.now().isBefore(solicitacao.getDataInicio())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Você só pode confirmar o uso após a data ter chegado.");
+        }
+
+        solicitacao.setStatus(StatusSolicitation.USUFRUIDA);
+
+        return new SolicitacaoDto(solicitacaoRepository.save(solicitacao));
     }
 
     private void validarDatas(CriarSolicitacaoDto dto) {
