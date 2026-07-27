@@ -1,6 +1,6 @@
 package com.infoway.infofolga.dto;
 
-public record FuncionarioPayload(
+public record ColaboradorPayload(
         String nome,
         String cpf,
         String senha,

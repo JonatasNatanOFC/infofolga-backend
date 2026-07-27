@@ -2,65 +2,49 @@ package com.infoway.infofolga.service;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.exceptions.JWTCreationException;
 import com.auth0.jwt.exceptions.JWTVerificationException;
-import com.infoway.infofolga.model.Funcionario;
-import com.infoway.infofolga.util.CpfUtils;
+import com.infoway.infofolga.model.Colaborador;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 @Service
 public class TokenService {
 
-    @Value("${JWT_SECRET}")
+    @Value("${api.security.token.secret}")
     private String secret;
 
-    public String gerarToken(Funcionario funcionario) {
+    public String gerarToken(Colaborador colaborador) {
         try {
-            Algorithm algorithm = Algorithm.HMAC256(secret);
-            String cpfLimpo = CpfUtils.limpar(funcionario.getCpf());
-
+            var algoritmo = Algorithm.HMAC256(secret);
             return JWT.create()
-                    .withIssuer("infofolga-api")
-                    .withSubject(cpfLimpo)
-                    .withExpiresAt(Instant.now().plus(2, ChronoUnit.HOURS))
-                    .sign(algorithm);
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao gerar token", e);
+                    .withIssuer("API infofolga")
+                    .withSubject(colaborador.getCpf())
+                    .withExpiresAt(dataExpiracao())
+                    .sign(algoritmo);
+        } catch (JWTCreationException exception) {
+            throw new RuntimeException("Erro ao gerar token jwt", exception);
         }
     }
 
-    public String validarToken(String token) {
+    public String validarToken(String tokenJWT) {
         try {
-            Algorithm algorithm = Algorithm.HMAC256(secret);
-
-            String subject = JWT.require(algorithm)
-                    .withIssuer("infofolga-api")
+            var algoritmo = Algorithm.HMAC256(secret);
+            return JWT.require(algoritmo)
+                    .withIssuer("API infofolga")
                     .build()
-                    .verify(token)
+                    .verify(tokenJWT)
                     .getSubject();
-
-            return CpfUtils.limpar(subject);
-        } catch (JWTVerificationException e) {
-            return null;
+        } catch (JWTVerificationException exception) {
+            return "";
         }
     }
 
-    public String gerarToken(UserDetails usuario) {
-        try {
-            Algorithm algorithm = Algorithm.HMAC256(secret);
-            String cpfLimpo = CpfUtils.limpar(usuario.getUsername());
-
-            return JWT.create()
-                    .withIssuer("infofolga-api")
-                    .withSubject(cpfLimpo)
-                    .withExpiresAt(Instant.now().plus(2, ChronoUnit.HOURS))
-                    .sign(algorithm);
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao gerar token", e);
-        }
+    private Instant dataExpiracao() {
+        return LocalDateTime.now().plusHours(2).toInstant(ZoneOffset.of("-03:00"));
     }
 }

@@ -2,8 +2,7 @@ package com.infoway.infofolga.service;
 
 import com.infoway.infofolga.dto.LoginRequestDto;
 import com.infoway.infofolga.dto.LoginResponseDto;
-import com.infoway.infofolga.model.Funcionario;
-import com.infoway.infofolga.model.Gerente;
+import com.infoway.infofolga.model.Colaborador;
 import com.infoway.infofolga.model.Role;
 import com.infoway.infofolga.util.CpfUtils;
 import org.slf4j.Logger;
@@ -11,8 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
@@ -27,6 +26,7 @@ public class AuthService {
         this.tokenService = tokenService;
     }
 
+    @Transactional
     public LoginResponseDto login(LoginRequestDto data) {
         String cpfLimpo = CpfUtils.limpar(data.cpf());
         var usernamePassword = new UsernamePasswordAuthenticationToken(cpfLimpo, data.senha());
@@ -34,20 +34,16 @@ public class AuthService {
         try {
             log.info("[AuthService] Tentativa de login");
             var auth = authenticationManager.authenticate(usernamePassword);
-            var principal = auth.getPrincipal();
 
-            String token = tokenService.gerarToken((UserDetails) principal);
+            Colaborador colaborador = (Colaborador) auth.getPrincipal();
 
-            if (principal instanceof Gerente gerente) {
-                Role role = gerente.isCeo() ? Role.ROLE_CEO : Role.ROLE_GERENTE;
-                log.info("[AuthService] Login efetuado: {} id={}", role, gerente.getId());
-                return new LoginResponseDto(token, gerente.getNome(), role);
-            } else if (principal instanceof Funcionario funcionario) {
-                log.info("[AuthService] Login de funcionário id={}", funcionario.getId());
-                return new LoginResponseDto(token, funcionario.getNome(), Role.ROLE_FUNCIONARIO);
-            }
+            String token = tokenService.gerarToken(colaborador);
+            Role role = colaborador.getRole();
 
-            throw new IllegalStateException("Tipo de usuário desconhecido.");
+            log.info("[AuthService] Login efetuado: {} id={}", role, colaborador.getId());
+
+            return new LoginResponseDto(token, colaborador.getNome(), role);
+
         } catch (AuthenticationException e) {
             log.warn("[AuthService] Falha de autenticação: {}", e.getClass().getSimpleName());
             throw e;

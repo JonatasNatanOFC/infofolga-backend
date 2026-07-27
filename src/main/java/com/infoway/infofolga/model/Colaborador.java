@@ -1,10 +1,7 @@
 package com.infoway.infofolga.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -12,12 +9,14 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 import java.util.List;
 
-@Entity
+@Table(name = "colaboradores")
+@Entity(name = "Colaborador")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Funcionario implements UserDetails {
+@EqualsAndHashCode(of = "id")
+public class Colaborador implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,34 +25,46 @@ public class Funcionario implements UserDetails {
     private String nome;
 
     @Column(unique = true)
-    private String matricula;
+    private String cpf;
+
+    @Column(unique = true)
+    private String email;
+
+    private String senha;
 
     private String cargo;
     private String setor;
-    private String senha;
-
-    @Column(unique = true)
-    private String cpf;
 
     @Column(columnDefinition = "TEXT")
     private String foto;
 
-    @Column(length = 20)
-    private String status = "ativo";
+    @Enumerated(EnumType.STRING)
+    private Role role;
+
+    @OneToMany(mappedBy = "colaborador")
+    private List<Solicitacao> minhasSolicitacoes;
+    private String status;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_FUNCIONARIO"));
+        if (this.role == Role.CEO) {
+            return List.of(new SimpleGrantedAuthority("ROLE_CEO"), new SimpleGrantedAuthority("ROLE_GERENTE"),
+                    new SimpleGrantedAuthority("ROLE_FUNCIONARIO"));
+        } else if (this.role == Role.GERENTE) {
+            return List.of(new SimpleGrantedAuthority("ROLE_GERENTE"), new SimpleGrantedAuthority("ROLE_FUNCIONARIO"));
+        } else {
+            return List.of(new SimpleGrantedAuthority("ROLE_FUNCIONARIO"));
+        }
     }
 
     @Override
     public String getPassword() {
-        return this.senha;
+        return senha;
     }
 
     @Override
     public String getUsername() {
-        return this.cpf;
+        return cpf;
     }
 
     @Override
@@ -73,6 +84,6 @@ public class Funcionario implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return "ativo".equalsIgnoreCase(this.status);
+        return !"inativo".equalsIgnoreCase(this.status);
     }
 }

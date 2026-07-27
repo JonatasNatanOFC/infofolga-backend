@@ -1,72 +1,61 @@
 package com.infoway.infofolga.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+@Table(name = "solicitacoes")
+@Entity(name = "Solicitacao")
 @Getter
-@Entity
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(of = "id")
 public class Solicitacao {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Setter
     @ManyToOne
-    @JoinColumn(name = "funcionario_id")
-    @JsonIgnoreProperties({ "senha", "solicitacoes", "foto" })
-    private Funcionario funcionario;
+    @JoinColumn(name = "colaborador_id")
+    private Colaborador colaborador;
 
-    @Setter
     @ManyToOne
-    @JoinColumn(name = "gerente_id")
-    @JsonIgnoreProperties({ "senha", "solicitacoes", "foto" })
-    private Gerente gerente;
+    @JoinColumn(name = "aprovador_id")
+    private Colaborador aprovador;
 
-    @Setter
     @Column(name = "nome_historico")
     private String nomeHistorico;
 
-    @Setter
     @Column(name = "cargo_historico")
     private String cargoHistorico;
 
-    @Setter
     @Column(name = "setor_historico")
     private String setorHistorico;
 
-    @Setter
     @Column(name = "foto_historico", columnDefinition = "TEXT")
     private String fotoHistorico;
 
-    @Setter
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TipoSolicitacao tipo;
 
-    @Setter
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private StatusSolicitation status;
 
-    @Setter
     @Column(nullable = false)
     private LocalDate dataInicio;
 
-    @Setter
     @Column(nullable = false)
     private LocalDate dataFim;
 
-    @Setter
     @Column(columnDefinition = "TEXT")
     private String motivo;
 
-    @Setter
     @Column(columnDefinition = "TEXT")
     private String motivoResposta;
 

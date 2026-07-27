@@ -1,7 +1,13 @@
 package com.infoway.infofolga.dto;
+
 public record DashboardStatsDto(
-    long pendingRequests,
-    long totalEmployees,
-    long approvedLast30Days,
-    long rejectedLast30Days
-) {}
+        long totalColaboradores,
+        long totalSolicitacoes,
+        long aprovadas30Dias,
+        long rejeitadas30Dias,
+        long pendentes30Dias,
+        long naoUsufruidas30Dias,
+        long folgasHoje,
+        long proximasFolgas
+) {
+}

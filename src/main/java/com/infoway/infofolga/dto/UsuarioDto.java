@@ -1,20 +1,22 @@
 package com.infoway.infofolga.dto;
 
-import com.infoway.infofolga.model.Funcionario;
+import com.infoway.infofolga.model.Colaborador;
 import com.infoway.infofolga.model.Role;
 
-public record UsuarioDto(Long id, String nome, String matricula, String setor, String cargo, Role role, String cpf, String foto, String status) {
-    public UsuarioDto(Funcionario funcionario) {
-        this(
-                funcionario.getId(),
-                funcionario.getNome(),
-                funcionario.getMatricula(),
-                funcionario.getSetor(),
-                funcionario.getCargo(),
-                Role.ROLE_FUNCIONARIO,
-                funcionario.getCpf(),
-                funcionario.getFoto(),
-                funcionario.getStatus()
-        );
+public record UsuarioDto(
+        Long id,
+        String nome,
+        String cpf,
+        String email,
+        String cargo,
+        String setor,
+        String foto,
+        String status,
+        Role role) {
+    public UsuarioDto(Colaborador colaborador) {
+        this(colaborador.getId(), colaborador.getNome(), colaborador.getCpf(), colaborador.getEmail(),
+                colaborador.getCargo(), colaborador.getSetor(), colaborador.getFoto(),
+                colaborador.getStatus(),
+                colaborador.getRole());
     }
 }
