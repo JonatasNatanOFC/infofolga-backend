@@ -1,6 +1,7 @@
 package com.infoway.infofolga.dto;
 
 import com.infoway.infofolga.model.Solicitacao;
+import com.infoway.infofolga.util.FotoUtils;
 import com.infoway.infofolga.model.StatusSolicitation;
 import com.infoway.infofolga.model.TipoSolicitacao;
 
@@ -21,15 +22,15 @@ public record SolicitacaoDto(
                 String motivoResposta,
                 LocalDateTime criadoEm,
                 LocalDateTime atualizadoEm,
-                UsuarioDto colaborador,
-                UsuarioDto aprovador) {
+                ColaboradorResumoDto colaborador,
+                ColaboradorResumoDto aprovador) {
         public SolicitacaoDto(Solicitacao solicitacao) {
                 this(
                                 solicitacao.getId(),
                                 solicitacao.getNomeHistorico(),
                                 solicitacao.getCargoHistorico(),
                                 solicitacao.getSetorHistorico(),
-                                solicitacao.getFotoHistorico(),
+                                FotoUtils.url(solicitacao.getFotoHistorico(), "/api/solicitacoes/" + solicitacao.getId() + "/foto"),
                                 solicitacao.getTipo(),
                                 solicitacao.getStatus(),
                                 solicitacao.getDataInicio(),
@@ -38,8 +39,8 @@ public record SolicitacaoDto(
                                 solicitacao.getMotivoResposta(),
                                 solicitacao.getCriadoEm(),
                                 solicitacao.getAtualizadoEm(),
-                                solicitacao.getColaborador() != null ? new UsuarioDto(solicitacao.getColaborador())
+                                solicitacao.getColaborador() != null ? new ColaboradorResumoDto(solicitacao.getColaborador())
                                                 : null,
-                                solicitacao.getAprovador() != null ? new UsuarioDto(solicitacao.getAprovador()) : null);
+                                solicitacao.getAprovador() != null ? new ColaboradorResumoDto(solicitacao.getAprovador()) : null);
         }
 }

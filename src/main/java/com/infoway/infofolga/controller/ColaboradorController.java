@@ -1,16 +1,19 @@
 package com.infoway.infofolga.controller;
 
+import com.infoway.infofolga.dto.AtualizarPerfilDto;
 import com.infoway.infofolga.dto.CadastroColaboradorDto;
 import com.infoway.infofolga.dto.ColaboradorStatsDto;
 import com.infoway.infofolga.dto.UsuarioDto;
 import com.infoway.infofolga.dto.UsuarioResumoDto;
 import com.infoway.infofolga.model.Colaborador;
+import com.infoway.infofolga.model.Role;
 import com.infoway.infofolga.service.ColaboradorService;
+import com.infoway.infofolga.util.FotoUtils;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -27,22 +30,18 @@ public class ColaboradorController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<UsuarioDto> getMe(Authentication authentication) {
-        if (authentication == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuário não autenticado");
-        }
-
-        Colaborador colaborador = (Colaborador) authentication.getPrincipal();
+    public ResponseEntity<UsuarioDto> getMe(@AuthenticationPrincipal Colaborador colaborador) {
         return ResponseEntity.ok(new UsuarioDto(colaborador));
     }
 
-    @GetMapping("/me/stats")
-    public ResponseEntity<ColaboradorStatsDto> getMyStats(Authentication authentication) {
-        if (authentication == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuário não autenticado");
-        }
+    @PutMapping("/me")
+    public ResponseEntity<UsuarioDto> atualizarMeuPerfil(@AuthenticationPrincipal Colaborador colaborador,
+                                                         @RequestBody @Valid AtualizarPerfilDto dto) {
+        return ResponseEntity.ok(colaboradorService.atualizarPerfil(colaborador.getId(), dto));
+    }
 
-        Colaborador colaborador = (Colaborador) authentication.getPrincipal();
+    @GetMapping("/me/stats")
+    public ResponseEntity<ColaboradorStatsDto> getMyStats(@AuthenticationPrincipal Colaborador colaborador) {
         return ResponseEntity.ok(colaboradorService.getStats(colaborador.getId()));
     }
 
@@ -51,6 +50,21 @@ public class ColaboradorController {
     public ResponseEntity<List<UsuarioResumoDto>> listarTodos() {
         List<UsuarioResumoDto> colaboradores = colaboradorService.listarTodos();
         return ResponseEntity.ok(colaboradores);
+    }
+
+    @GetMapping("/{id}/foto")
+    public ResponseEntity<byte[]> foto(@PathVariable Long id, @AuthenticationPrincipal Colaborador logado) {
+        boolean gestor = logado.getRole() == Role.CEO || logado.getRole() == Role.GERENTE;
+        if (!gestor && !logado.getId().equals(id)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acesso negado.");
+        }
+        return FotoUtils.resposta(colaboradorService.buscarFoto(id));
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasRole('GERENTE') or hasRole('CEO')")
+    public ResponseEntity<UsuarioDto> buscarPorId(@PathVariable Long id) {
+        return ResponseEntity.ok(colaboradorService.buscarPorId(id));
     }
 
     @PostMapping
@@ -89,12 +103,14 @@ public class ColaboradorController {
     }
 
     @PutMapping("/{id}/promover")
+    @PreAuthorize("hasRole('CEO')")
     public ResponseEntity<Void> promover(@PathVariable Long id) {
         colaboradorService.promoverParaGerente(id);
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/{id}/rebaixar")
+    @PreAuthorize("hasRole('CEO')")
     public ResponseEntity<Void> rebaixar(@PathVariable Long id) {
         colaboradorService.rebaixarParaFuncionario(id);
         return ResponseEntity.ok().build();

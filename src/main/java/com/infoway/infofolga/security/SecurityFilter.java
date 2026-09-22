@@ -7,6 +7,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,10 +17,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Optional;
 
 @Component
 public class SecurityFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(SecurityFilter.class);
 
     private final TokenService tokenService;
     private final ColaboradorRepository colaboradorRepository;
@@ -34,35 +37,27 @@ public class SecurityFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain) throws ServletException, IOException {
 
-        try {
-            String token = recuperarToken(request);
+        String token = recuperarToken(request);
 
-            if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                String cpfLimpo = tokenService.validarToken(token);
+        if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            try {
+                String cpf = tokenService.validarToken(token);
 
-                if (cpfLimpo != null && !cpfLimpo.isBlank()) {
-                    Optional<Colaborador> colaboradorOpt = colaboradorRepository.findByCpf(cpfLimpo);
-
-                    if (colaboradorOpt.isPresent()) {
-                        Colaborador colaborador = colaboradorOpt.get();
-
-                        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                                colaborador,
-                                null,
-                                colaborador.getAuthorities());
-
-                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                        SecurityContextHolder.getContext().setAuthentication(authentication);
-                    } else {
-                        SecurityContextHolder.clearContext();
-                    }
-                } else {
-                    SecurityContextHolder.clearContext();
+                if (cpf != null && !cpf.isBlank()) {
+                    colaboradorRepository.findByCpf(cpf)
+                            // Colaboradores inativados perdem o acesso imediatamente, mesmo com token válido
+                            .filter(Colaborador::isEnabled)
+                            .ifPresent(colaborador -> {
+                                var authentication = new UsernamePasswordAuthenticationToken(
+                                        colaborador, null, colaborador.getAuthorities());
+                                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                                SecurityContextHolder.getContext().setAuthentication(authentication);
+                            });
                 }
+            } catch (Exception e) {
+                log.warn("Falha ao autenticar token: {}", e.getClass().getSimpleName());
+                SecurityContextHolder.clearContext();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);
@@ -73,6 +68,7 @@ public class SecurityFilter extends OncePerRequestFilter {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return null;
         }
-        return authHeader.substring(7);
+        String token = authHeader.substring(7).trim();
+        return token.isEmpty() ? null : token;
     }
 }

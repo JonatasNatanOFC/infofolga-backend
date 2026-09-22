@@ -2,6 +2,7 @@ package com.infoway.infofolga.dto;
 
 import com.infoway.infofolga.model.Colaborador;
 import com.infoway.infofolga.model.Role;
+import com.infoway.infofolga.util.FotoUtils;
 
 public record UsuarioResumoDto(
         Long id,
@@ -24,7 +25,7 @@ public record UsuarioResumoDto(
                 c.getCpf(),
                 c.getRole(),
                 c.getStatus(),
-                c.getFoto()
+                FotoUtils.url(c.getFoto(), "/api/colaboradores/" + c.getId() + "/foto")
         );
     }
 }

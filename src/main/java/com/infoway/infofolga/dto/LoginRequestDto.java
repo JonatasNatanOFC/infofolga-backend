@@ -5,9 +5,10 @@ import jakarta.validation.constraints.Size;
 
 public record LoginRequestDto(
         @NotBlank(message = "CPF é obrigatório")
+        @Size(max = 14, message = "CPF inválido")
         String cpf,
 
         @NotBlank(message = "Senha é obrigatória")
-        @Size(min = 8, message = "A senha deve ter no mínimo 8 caracteres")
+        @Size(max = 72, message = "Usuário ou senha inválidos.")
         String senha
 ) {}

@@ -4,47 +4,55 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTCreationException;
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.auth0.jwt.interfaces.JWTVerifier;
 import com.infoway.infofolga.model.Colaborador;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 
 @Service
 public class TokenService {
 
-    @Value("${api.security.token.secret}")
-    private String secret;
+    private static final String ISSUER = "API infofolga";
+    private static final Duration VALIDADE = Duration.ofHours(2);
+    private static final int TAMANHO_MINIMO_SECRET = 32;
+
+    private final Algorithm algoritmo;
+    private final JWTVerifier verifier;
+
+    public TokenService(@Value("${api.security.token.secret}") String secret) {
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < TAMANHO_MINIMO_SECRET) {
+            throw new IllegalStateException(
+                    "JWT_SECRET ausente ou fraco: use pelo menos " + TAMANHO_MINIMO_SECRET + " bytes aleatórios.");
+        }
+        this.algoritmo = Algorithm.HMAC256(secret);
+        this.verifier = JWT.require(algoritmo)
+                .withIssuer(ISSUER)
+                .build();
+    }
 
     public String gerarToken(Colaborador colaborador) {
         try {
-            var algoritmo = Algorithm.HMAC256(secret);
+            Instant agora = Instant.now();
             return JWT.create()
-                    .withIssuer("API infofolga")
+                    .withIssuer(ISSUER)
                     .withSubject(colaborador.getCpf())
-                    .withExpiresAt(dataExpiracao())
+                    .withIssuedAt(agora)
+                    .withExpiresAt(agora.plus(VALIDADE))
                     .sign(algoritmo);
         } catch (JWTCreationException exception) {
-            throw new RuntimeException("Erro ao gerar token jwt", exception);
+            throw new IllegalStateException("Erro ao gerar token jwt", exception);
         }
     }
 
     public String validarToken(String tokenJWT) {
         try {
-            var algoritmo = Algorithm.HMAC256(secret);
-            return JWT.require(algoritmo)
-                    .withIssuer("API infofolga")
-                    .build()
-                    .verify(tokenJWT)
-                    .getSubject();
+            return verifier.verify(tokenJWT).getSubject();
         } catch (JWTVerificationException exception) {
             return "";
         }
-    }
-
-    private Instant dataExpiracao() {
-        return LocalDateTime.now().plusHours(2).toInstant(ZoneOffset.of("-03:00"));
     }
 }
