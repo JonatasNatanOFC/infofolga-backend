@@ -1,0 +1,58 @@
+# docker-compose.prod.yml
+# Orquestração de produção. Deploy: docker compose -f docker-compose.prod.yml up -d
+# Presupõe: .env.production existente com valores reais de secrets
+
+version: '3.8'
+
+services:
+  banco:
+    image: postgres:16
+    container_name: infofolga_banco_prod
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - infofolga_postgres_data_prod:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5441:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - infofolga_network
+
+  api:
+    build: .
+    container_name: infofolga_api_prod
+    depends_on:
+      banco:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      PORT: ${PORT}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO}
+      JWT_SECRET: ${JWT_SECRET}
+      API_BIND: ${API_BIND}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${API_BIND}:8080:8080"
+    restart: unless-stopped
+    networks:
+      - infofolga_network
+
+volumes:
+  infofolga_postgres_data_prod:
+    driver: local
+
+networks:
+  infofolga_network:
+    driver: bridge

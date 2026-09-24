@@ -4,4 +4,4 @@ target/
 .idea/
 .vscode/
 *.class
-ScratchToken.java
+load-tests/

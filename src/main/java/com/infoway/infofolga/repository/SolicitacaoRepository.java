@@ -18,7 +18,12 @@ import java.util.List;
 @Repository
 public interface SolicitacaoRepository extends JpaRepository<Solicitacao, Long> {
 
-    List<Solicitacao> findByColaboradorId(Long id);
+    @Query("SELECT COUNT(s) > 0 FROM Solicitacao s WHERE s.colaborador.id = :id AND s.status IN :status "
+            + "AND s.dataInicio <= :fim AND s.dataFim >= :inicio")
+    boolean existeSobreposicao(@Param("id") Long idColaborador,
+                               @Param("status") Collection<StatusSolicitation> status,
+                               @Param("inicio") LocalDate inicio,
+                               @Param("fim") LocalDate fim);
 
     @Query("SELECT s FROM Solicitacao s JOIN FETCH s.colaborador LEFT JOIN FETCH s.aprovador ORDER BY s.id DESC")
     List<Solicitacao> findAllOtimizado();
@@ -37,6 +42,8 @@ public interface SolicitacaoRepository extends JpaRepository<Solicitacao, Long> 
 
     @Query("SELECT s FROM Solicitacao s JOIN FETCH s.colaborador LEFT JOIN FETCH s.aprovador WHERE s.colaborador.id = :id ORDER BY s.id DESC")
     List<Solicitacao> findByColaboradorIdOtimizado(@Param("id") Long id);
+
+    long countByStatus(StatusSolicitation status);
 
     long countByStatusAndAtualizadoEmAfter(StatusSolicitation status, LocalDateTime data);
 

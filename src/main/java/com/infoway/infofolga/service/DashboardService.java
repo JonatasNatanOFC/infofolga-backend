@@ -33,7 +33,7 @@ public class DashboardService {
 
                 long aprovadas = solicitacaoRepository.countByStatusAndAtualizadoEmAfter(StatusSolicitation.APROVADA, trintaDiasAtras);
                 long rejeitadas = solicitacaoRepository.countByStatusAndAtualizadoEmAfter(StatusSolicitation.REJEITADA, trintaDiasAtras);
-                long pendentes = solicitacaoRepository.countByStatusAndAtualizadoEmAfter(StatusSolicitation.PENDENTE, trintaDiasAtras);
+                long pendentes = solicitacaoRepository.countByStatus(StatusSolicitation.PENDENTE); // todas aguardam análise, qualquer que seja a idade
                 long naoUsufruidas = solicitacaoRepository.countByStatusAndAtualizadoEmAfter(StatusSolicitation.INVALIDADA, trintaDiasAtras);
 
                 List<StatusSolicitation> statusAtivos = List.of(StatusSolicitation.APROVADA, StatusSolicitation.USUFRUIDA);

@@ -33,5 +33,7 @@ build/
 .vscode/
 
 .env
-*.js
-*.html
+.env.production
+.env.production.*
+!.env.production.example
+load-tests/*.html

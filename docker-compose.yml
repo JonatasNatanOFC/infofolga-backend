@@ -7,6 +7,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: America/Sao_Paulo
     ports:
       - "127.0.0.1:5441:5432"
     volumes:
@@ -35,8 +36,10 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO}
       JWT_SECRET: ${JWT_SECRET}
+      TZ: America/Sao_Paulo
     ports:
-      - "8080:8080"
+      # Em produção use API_BIND=127.0.0.1 e exponha a API só pelo proxy reverso com HTTPS
+      - "${API_BIND:-0.0.0.0}:8080:8080"
     networks:
       - infofolga_net
 

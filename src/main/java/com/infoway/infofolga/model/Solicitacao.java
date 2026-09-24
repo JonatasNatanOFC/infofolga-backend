@@ -64,6 +64,11 @@ public class Solicitacao {
 
     private LocalDateTime atualizadoEm;
 
+    // Lock otimista: impede que duas avaliações simultâneas sobrescrevam uma à outra.
+    @Version
+    @Column(nullable = false, columnDefinition = "bigint default 0")
+    private long versao;
+
     @PrePersist
     public void prePersist() {
         LocalDateTime agora = LocalDateTime.now();

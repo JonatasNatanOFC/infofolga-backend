@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -46,6 +47,31 @@ public class SolicitacaoService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Avaliador não encontrado"));
     }
 
+    private static final List<StatusSolicitation> STATUS_QUE_OCUPAM_DATA = List.of(
+            StatusSolicitation.PENDENTE, StatusSolicitation.APROVADA,
+            StatusSolicitation.ESTORNO_PENDENTE, StatusSolicitation.USUFRUIDA);
+
+    // Mesmas regras de antecedência validadas no app (NovaSolicitacaoScreen).
+    private static void validarAntecedencia(CriarSolicitacaoDto dto) {
+        LocalDate hoje = LocalDate.now();
+        boolean folga = dto.tipo() == TipoSolicitacao.FOLGA;
+        int diasMinimos = folga ? 3 : 15;
+        LocalDate limite = folga ? hoje.plusDays(30) : hoje.plusYears(2);
+
+        if (dto.dataInicio().isBefore(hoje.plusDays(diasMinimos))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A solicitação deve ser feita com pelo menos " + diasMinimos + " dias de antecedência.");
+        }
+        if (dto.dataInicio().isAfter(limite)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A data inicial está além do limite permitido para agendamento.");
+        }
+        if (folga && !dto.dataFim().equals(dto.dataInicio())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Folga só pode ser solicitada para 1 único dia.");
+        }
+    }
+
     private static void exigirStatus(Solicitacao solicitacao, StatusSolicitation esperado) {
         if (solicitacao.getStatus() != esperado) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -60,14 +86,22 @@ public class SolicitacaoService {
     }
 
     @Transactional
-    @CacheEvict(value = {"stats_colaborador", "dashboard_stats"}, allEntries = true)
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public Solicitacao criarSolicitacao(CriarSolicitacaoDto dto) {
         if (dto.dataFim().isBefore(dto.dataInicio())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "A data final não pode ser anterior à data inicial.");
         }
 
+        validarAntecedencia(dto);
+
         Colaborador logado = getColaboradorAutenticado();
+
+        if (solicitacaoRepository.existeSobreposicao(logado.getId(), STATUS_QUE_OCUPAM_DATA,
+                dto.dataInicio(), dto.dataFim())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Já existe uma solicitação sua para este período.");
+        }
 
         Solicitacao solicitacao = new Solicitacao();
         solicitacao.setColaborador(logado);
@@ -86,13 +120,13 @@ public class SolicitacaoService {
     }
 
     @Transactional
-    @CacheEvict(value = {"stats_colaborador", "dashboard_stats"}, allEntries = true)
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public Solicitacao aprovarSolicitacao(Long idSolicitacao, Long idAvaliador) {
         return avaliar(idSolicitacao, idAvaliador, StatusSolicitation.PENDENTE, StatusSolicitation.APROVADA);
     }
 
     @Transactional
-    @CacheEvict(value = {"stats_colaborador", "dashboard_stats"}, allEntries = true)
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public Solicitacao rejeitarSolicitacao(Long idSolicitacao, Long idAvaliador, String motivo) {
         Solicitacao sol = avaliar(idSolicitacao, idAvaliador, StatusSolicitation.PENDENTE, StatusSolicitation.REJEITADA);
         sol.setMotivoResposta(motivo);
@@ -100,13 +134,13 @@ public class SolicitacaoService {
     }
 
     @Transactional
-    @CacheEvict(value = {"stats_colaborador", "dashboard_stats"}, allEntries = true)
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public Solicitacao aprovarEstorno(Long idSolicitacao, Long idAvaliador) {
         return avaliar(idSolicitacao, idAvaliador, StatusSolicitation.ESTORNO_PENDENTE, StatusSolicitation.INVALIDADA);
     }
 
     @Transactional
-    @CacheEvict(value = {"stats_colaborador", "dashboard_stats"}, allEntries = true)
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public Solicitacao rejeitarEstorno(Long idSolicitacao, Long idAvaliador) {
         return avaliar(idSolicitacao, idAvaliador, StatusSolicitation.ESTORNO_PENDENTE, StatusSolicitation.APROVADA);
     }
@@ -115,6 +149,10 @@ public class SolicitacaoService {
                                 StatusSolicitation statusEsperado, StatusSolicitation novoStatus) {
         Solicitacao sol = buscar(idSolicitacao);
         Colaborador avaliador = buscarAvaliador(idAvaliador);
+        if (sol.getColaborador().getId().equals(avaliador.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Você não pode avaliar a sua própria solicitação.");
+        }
         exigirStatus(sol, statusEsperado);
 
         sol.setStatus(novoStatus);
@@ -123,7 +161,7 @@ public class SolicitacaoService {
     }
 
     @Transactional
-    @CacheEvict(value = {"stats_colaborador", "dashboard_stats"}, allEntries = true)
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public Solicitacao invalidarSolicitacao(Long idSolicitacao) {
         Colaborador logado = getColaboradorAutenticado();
         Solicitacao solicitacao = buscar(idSolicitacao);
@@ -135,7 +173,7 @@ public class SolicitacaoService {
     }
 
     @Transactional
-    @CacheEvict(value = {"stats_colaborador", "dashboard_stats"}, allEntries = true)
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public void cancelarSolicitacao(Long idSolicitacao) {
         Colaborador logado = getColaboradorAutenticado();
         Solicitacao solicitacao = buscar(idSolicitacao);
@@ -147,7 +185,7 @@ public class SolicitacaoService {
     }
 
     @Transactional
-    @CacheEvict(value = {"stats_colaborador", "dashboard_stats"}, allEntries = true)
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public Solicitacao usufruirSolicitacao(Long idSolicitacao) {
         Colaborador logado = getColaboradorAutenticado();
         Solicitacao solicitacao = buscar(idSolicitacao);

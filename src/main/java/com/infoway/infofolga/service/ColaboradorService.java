@@ -2,7 +2,6 @@ package com.infoway.infofolga.service;
 
 import com.infoway.infofolga.dto.AtualizarPerfilDto;
 import com.infoway.infofolga.dto.CadastroColaboradorDto;
-import com.infoway.infofolga.dto.ColaboradorStatsDto;
 import com.infoway.infofolga.dto.UsuarioDto;
 import com.infoway.infofolga.dto.UsuarioResumoDto;
 import com.infoway.infofolga.model.Colaborador;
@@ -11,7 +10,6 @@ import com.infoway.infofolga.repository.ColaboradorRepository;
 import com.infoway.infofolga.util.CpfUtils;
 import com.infoway.infofolga.util.FotoUtils;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,11 +32,6 @@ public class ColaboradorService {
     ColaboradorService(ColaboradorRepository colaboradorRepository, PasswordEncoder passwordEncoder) {
         this.colaboradorRepository = colaboradorRepository;
         this.passwordEncoder = passwordEncoder;
-    }
-
-    @Cacheable(value = "stats_colaborador", key = "#idColaborador")
-    public ColaboradorStatsDto getStats(Long idColaborador) {
-        return new ColaboradorStatsDto(0, 0, 0, 0);
     }
 
     @Transactional(readOnly = true)
@@ -112,6 +105,7 @@ public class ColaboradorService {
     @Transactional
     public UsuarioDto atualizar(Long id, CadastroColaboradorDto dto) {
         Colaborador colaborador = buscar(id);
+        impedirAlteracaoDeOutroCeo(colaborador);
 
         if (dto.nome() != null && !dto.nome().isBlank()) colaborador.setNome(dto.nome().trim());
 
@@ -163,6 +157,7 @@ public class ColaboradorService {
     public void deletar(Long id) {
         Colaborador colaborador = buscar(id);
         impedirAlteracaoDoProprioUsuario(colaborador, "Você não pode excluir a sua própria conta.");
+        impedirAlteracaoDeOutroCeo(colaborador);
 
         try {
             colaboradorRepository.delete(colaborador);
@@ -179,6 +174,7 @@ public class ColaboradorService {
     public void inativar(Long id) {
         Colaborador colaborador = buscar(id);
         impedirAlteracaoDoProprioUsuario(colaborador, "Você não pode inativar a sua própria conta.");
+        impedirAlteracaoDeOutroCeo(colaborador);
         colaborador.setStatus("inativo");
         colaboradorRepository.save(colaborador);
     }
@@ -186,6 +182,7 @@ public class ColaboradorService {
     @Transactional
     public void reativar(Long id) {
         Colaborador colaborador = buscar(id);
+        impedirAlteracaoDeOutroCeo(colaborador);
         colaborador.setStatus("ativo");
         colaboradorRepository.save(colaborador);
     }
@@ -220,6 +217,17 @@ public class ColaboradorService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CPF inválido");
         }
         return CpfUtils.limpar(cpf);
+    }
+
+    // Um CEO não pode editar, inativar ou excluir a conta de outro CEO (ex.: trocar a senha dele e assumir o acesso).
+    private void impedirAlteracaoDeOutroCeo(Colaborador alvo) {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean proprioUsuario = auth != null && auth.getPrincipal() instanceof Colaborador logado
+                && logado.getId().equals(alvo.getId());
+        if (alvo.getRole() == Role.CEO && !proprioUsuario) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "A conta de outro CEO não pode ser alterada.");
+        }
     }
 
     private void impedirAlteracaoDoProprioUsuario(Colaborador alvo, String mensagem) {

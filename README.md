@@ -2,7 +2,7 @@
 
 API REST para gestão de **folgas e férias** de colaboradores. Funcionários abrem solicitações, gerentes e CEO aprovam ou rejeitam, e um dashboard consolida os números da equipe.
 
-**Stack:** Java 17 · Spring Boot 3.5 · Spring Security + JWT (Auth0 `java-jwt`) · Spring Data JPA · PostgreSQL 16 · Lombok · Docker
+**Stack:** Java 21 · Spring Boot 3.5 · Spring Security + JWT (Auth0 `java-jwt`) · Spring Data JPA · PostgreSQL 16 · Lombok · Docker
 
 ---
 
@@ -17,6 +17,7 @@ API REST para gestão de **folgas e férias** de colaboradores. Funcionários ab
 - [Ciclo de vida de uma solicitação](#ciclo-de-vida-de-uma-solicitação)
 - [Erros](#erros)
 - [Estrutura do projeto](#estrutura-do-projeto)
+- [Deploy em produção](#deploy-em-produção)
 - [Testes](#testes)
 
 ---
@@ -79,10 +80,11 @@ O arquivo `.env` fica na raiz do projeto e está no `.gitignore` — **nunca fa�
 | `SPRING_DATASOURCE_URL` | JDBC URL usada pela API | `jdbc:postgresql://banco:5432/infofolga_db` |
 | `SPRING_DATASOURCE_USERNAME` | Deve ser igual a `POSTGRES_USER` | `infofolga` |
 | `SPRING_DATASOURCE_PASSWORD` | Deve ser igual a `POSTGRES_PASSWORD` | — |
-| `SPRING_JPA_HIBERNATE_DDL_AUTO` | Estratégia de schema do Hibernate (padrão `update`) | `update` |
+| `SPRING_JPA_HIBERNATE_DDL_AUTO` | Estratégia de schema do Hibernate (padrão `validate`; use `update` só em desenvolvimento) | `update` |
 | `JWT_SECRET` | Chave HMAC256 para assinar os tokens | string longa e aleatória |
+| `API_BIND` | Interface onde a porta 8080 é publicada (padrão `0.0.0.0`). Em produção use `127.0.0.1` atrás de um proxy HTTPS | `127.0.0.1` |
 
-O schema é criado/atualizado automaticamente pelo Hibernate (`ddl-auto=update`); não há migrations.
+Sem `SPRING_JPA_HIBERNATE_DDL_AUTO` a API só valida o schema. Ainda não há migrations: por enquanto o schema é criado com `update` em desenvolvimento.
 
 ---
 
@@ -163,8 +165,8 @@ Todos exigem `Authorization: Bearer <token>`, exceto o login. A coluna **Acesso*
 | `DELETE` | `/api/colaboradores/{id}` | CEO | Exclui — falha com 400 se houver solicitações vinculadas |
 | `PUT` | `/api/colaboradores/{id}/inativar` | CEO | Bloqueia o acesso (preserva histórico) |
 | `PUT` | `/api/colaboradores/{id}/reativar` | CEO | Libera o acesso novamente |
-| `PUT` | `/api/colaboradores/{id}/promover` | — | Define role como `GERENTE` |
-| `PUT` | `/api/colaboradores/{id}/rebaixar` | — | Define role como `FUNCIONARIO` |
+| `PUT` | `/api/colaboradores/{id}/promover` | CEO | Define role como `GERENTE` |
+| `PUT` | `/api/colaboradores/{id}/rebaixar` | CEO | Define role como `FUNCIONARIO` |
 
 Corpo de cadastro:
 
@@ -181,7 +183,7 @@ Corpo de cadastro:
 }
 ```
 
-`nome`, `cpf`, `email`, `senha` (mín. 8 caracteres) e `role` são obrigatórios. `foto` é uma string livre (tipicamente base64) salva como `TEXT`.
+`nome`, `cpf`, `email`, `senha` (mín. 8 caracteres) e `role` são obrigatórios. `foto` é um data URI base64 (`image/jpeg`, `image/png` ou `image/webp`, até ~2 MB) salvo como `TEXT`.
 
 ### Solicitações
 
@@ -233,7 +235,7 @@ Cada solicitação guarda um **snapshot** de nome, cargo, setor e foto do colabo
 
 Os contadores "30 dias" consideram a data da última atualização da solicitação. `folgasHoje` conta `APROVADA`/`USUFRUIDA` cujo período inclui hoje; `proximasFolgas` conta `APROVADA` que começam nos próximos 7 dias.
 
-O resultado fica em cache em memória e é invalidado a cada alteração em solicitações.
+O resultado fica em cache em memória por até 5 minutos e é invalidado a cada alteração em solicitações.
 
 ---
 
@@ -253,7 +255,7 @@ PENDENTE ───────┼──────────► CANCELADA
                     INVALIDADA
 ```
 
-> As transições não são validadas no servidor: qualquer endpoint de mudança de status aceita a solicitação em qualquer estado. O fluxo acima é o esperado pelo front-end.
+> As transições são validadas no servidor: uma operação sobre uma solicitação fora do status esperado retorna `409`. Avaliações simultâneas da mesma solicitação também retornam `409` (lock otimista).
 
 ---
 
@@ -268,8 +270,9 @@ Os erros de negócio e validação seguem o formato:
 | Status | Quando |
 |---|---|
 | `400` | Validação do corpo falhou, ou exclusão de colaborador com histórico |
-| `401` | Rota protegida sem token válido |
-| `403` | Login inválido, ou perfil sem permissão |
+| `401` | Login inválido, ou rota protegida sem token válido |
+| `403` | Perfil sem permissão |
+| `409` | CPF/e-mail duplicado, transição de status inválida ou edição concorrente |
 | `404` | Recurso não encontrado |
 | `500` | Erro inesperado |
 
@@ -291,8 +294,24 @@ src/main/java/com/infoway/infofolga/
 
 Arquivos auxiliares:
 
-- `teste-carga.js` — script [k6](https://k6.io) de teste de carga (login + leituras). Rode com `k6 run src/main/java/com/infoway/infofolga/teste-carga.js`; ajuste as credenciais no script antes.
-- `relatorio-carga-final.html` — relatório gerado pelo último teste de carga.
+- `load-tests/teste-carga.js` — script [k6](https://k6.io) de teste de carga (login + leituras). As credenciais vêm do ambiente:
+  `k6 run -e GERENTE_CPF=... -e GERENTE_SENHA=... -e FUNC_CPF=... -e FUNC_SENHA=... load-tests/teste-carga.js`
+- `load-tests/relatorio-carga-final.html` — relatório gerado pelo último teste de carga (fora do controle de versão).
+
+---
+
+## Deploy em produção
+
+Veja **[DEPLOYMENT.md](DEPLOYMENT.md)** para instruções completas de deploy em VPS (setup de nginx + SSL, Docker Compose, backup, troubleshooting).
+
+**Resumo:**
+
+1. Copiar `.env.production.example` → `.env.production` e preencher valores reais
+2. Configurar nginx (reverse proxy) no host com Let's Encrypt
+3. `docker-compose -f docker-compose.prod.yml up -d`
+4. Validar com `curl` contra a URL de produção
+
+O arquivo `application-prod.properties` sobrescreve logs e comportamentos para produção (ativado via `SPRING_PROFILES_ACTIVE=prod` no `.env.production`).
 
 ---
 

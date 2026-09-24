@@ -2,7 +2,6 @@ package com.infoway.infofolga.controller;
 
 import com.infoway.infofolga.dto.AtualizarPerfilDto;
 import com.infoway.infofolga.dto.CadastroColaboradorDto;
-import com.infoway.infofolga.dto.ColaboradorStatsDto;
 import com.infoway.infofolga.dto.UsuarioDto;
 import com.infoway.infofolga.dto.UsuarioResumoDto;
 import com.infoway.infofolga.model.Colaborador;
@@ -38,11 +37,6 @@ public class ColaboradorController {
     public ResponseEntity<UsuarioDto> atualizarMeuPerfil(@AuthenticationPrincipal Colaborador colaborador,
                                                          @RequestBody @Valid AtualizarPerfilDto dto) {
         return ResponseEntity.ok(colaboradorService.atualizarPerfil(colaborador.getId(), dto));
-    }
-
-    @GetMapping("/me/stats")
-    public ResponseEntity<ColaboradorStatsDto> getMyStats(@AuthenticationPrincipal Colaborador colaborador) {
-        return ResponseEntity.ok(colaboradorService.getStats(colaborador.getId()));
     }
 
     @GetMapping

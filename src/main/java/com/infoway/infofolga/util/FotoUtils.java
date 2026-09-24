@@ -18,8 +18,10 @@ import java.util.regex.Pattern;
  */
 public final class FotoUtils {
 
-    private static final Pattern DATA_URI = Pattern.compile("^data:(image/[a-zA-Z0-9.+-]+);base64,(.+)$", Pattern.DOTALL);
-    private static final int TAMANHO_MAXIMO = 3 * 1024 * 1024;
+    // Só formatos raster: SVG pode carregar script e não é aceito.
+    private static final Pattern DATA_URI = Pattern.compile("^data:(image/(?:jpeg|png|webp));base64,(.+)$", Pattern.DOTALL);
+    // base64 ocupa ~4/3 do tamanho real: 2 MB de imagem viram ~2,7 MB de texto (+ cabeçalho do data URI).
+    private static final int TAMANHO_MAXIMO = (2 * 1024 * 1024) * 4 / 3 + 64;
 
     private FotoUtils() {
     }

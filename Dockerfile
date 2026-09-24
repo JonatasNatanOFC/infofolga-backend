@@ -1,13 +1,19 @@
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /app
 
-COPY . .
+# Dependências em camada própria: só são baixadas de novo quando o pom.xml muda
+COPY mvnw pom.xml ./
+COPY .mvn .mvn
+RUN chmod +x mvnw && ./mvnw -q dependency:go-offline
 
-RUN chmod +x mvnw
-RUN ./mvnw clean package -DskipTests
+COPY src src
+RUN ./mvnw -q clean package -DskipTests
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
+
+# Datas de negócio ("hoje", "últimos 30 dias") são calculadas no fuso do servidor
+ENV TZ=America/Sao_Paulo
 
 RUN groupadd --system app && useradd --system --gid app --no-create-home app
 
@@ -17,4 +23,4 @@ USER app
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Duser.timezone=America/Sao_Paulo", "-jar", "app.jar"]
