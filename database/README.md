@@ -147,3 +147,17 @@ VALUES ('CEO Inicial', '00000000001', 'ceo@empresa.com', '$2a$10$YOUR_BCRYPT_HAS
 5. Se OK, inserir primeiro CEO manualmente via SQL
 6. Testar login via curl/Postman
 7. Proceder para nginx + SSL (próxima etapa)
+
+## Plano futuro
+
+**V1 é o schema inicial de produção.** Quando o schema precisar evoluir:
+
+1. **Criar migration versionada:** `V2__adicionar_coluna_x.sql`, `V3__renomear_tabela.sql`, etc.
+2. **Workflow de migrations:**
+   - Criar arquivo `database/V<N>__<descricao>.sql` com alterações
+   - Testar em banco de desenvolvimento
+   - Executar manualmente em produção **antes** de subir a API com novas entidades JPA
+   - Verificar que `SPRING_JPA_HIBERNATE_DDL_AUTO=validate` ainda passa sem erros
+3. **Ferramentas recomendadas no futuro:** quando múltiplas migrations acumularem, adotar **Flyway** para orquestração automática de migrations versionadas.
+
+**Por agora (primeiro deploy):** schema V1 é suficiente. Migrations serão adicionadas conforme o projeto evoluir.
