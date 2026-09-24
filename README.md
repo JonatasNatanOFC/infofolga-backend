@@ -17,6 +17,7 @@ API REST para gestão de **folgas e férias** de colaboradores. Funcionários ab
 - [Ciclo de vida de uma solicitação](#ciclo-de-vida-de-uma-solicitação)
 - [Erros](#erros)
 - [Estrutura do projeto](#estrutura-do-projeto)
+- [Database (schema e migrations)](#database-schema-e-migrations)
 - [Deploy em produção](#deploy-em-produção)
 - [Testes](#testes)
 
@@ -300,16 +301,29 @@ Arquivos auxiliares:
 
 ---
 
+## Database (schema e migrations)
+
+Veja **[database/README.md](database/README.md)** para:
+- Como executar o schema inicial (`V1__schema_inicial.sql`) em um banco vazio
+- Como validar que o Hibernate aceita o schema com `ddl-auto=validate`
+- Como inserir o primeiro CEO
+
+**Documentação técnica:**
+- **`database/SCHEMA_MAPPING.md`** — Mapeamento detalhado JPA → SQL, campo por campo, para cada entidade
+
+---
+
 ## Deploy em produção
 
 Veja **[DEPLOYMENT.md](DEPLOYMENT.md)** para instruções completas de deploy em VPS (setup de nginx + SSL, Docker Compose, backup, troubleshooting).
 
 **Resumo:**
 
-1. Copiar `.env.production.example` → `.env.production` e preencher valores reais
-2. Configurar nginx (reverse proxy) no host com Let's Encrypt
-3. `docker-compose -f docker-compose.prod.yml up -d`
-4. Validar com `curl` contra a URL de produção
+1. Executar script SQL inicial: `database/V1__schema_inicial.sql` no banco vazio
+2. Copiar `.env.production.example` → `.env.production` e preencher valores reais (`SPRING_JPA_HIBERNATE_DDL_AUTO=validate`)
+3. Configurar nginx (reverse proxy) no host com Let's Encrypt
+4. `docker-compose -f docker-compose.prod.yml up -d`
+5. Validar com `curl` contra a URL de produção
 
 O arquivo `application-prod.properties` sobrescreve logs e comportamentos para produção (ativado via `SPRING_PROFILES_ACTIVE=prod` no `.env.production`).
 
