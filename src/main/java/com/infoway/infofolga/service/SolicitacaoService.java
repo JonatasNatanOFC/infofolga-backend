@@ -15,6 +15,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -119,13 +120,13 @@ public class SolicitacaoService {
         return solicitacaoRepository.save(solicitacao);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     @CacheEvict(value = "dashboard_stats", allEntries = true)
     public Solicitacao aprovarSolicitacao(Long idSolicitacao, Long idAvaliador) {
         return avaliar(idSolicitacao, idAvaliador, StatusSolicitation.PENDENTE, StatusSolicitation.APROVADA);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     @CacheEvict(value = "dashboard_stats", allEntries = true)
     public Solicitacao rejeitarSolicitacao(Long idSolicitacao, Long idAvaliador, String motivo) {
         Solicitacao sol = avaliar(idSolicitacao, idAvaliador, StatusSolicitation.PENDENTE, StatusSolicitation.REJEITADA);
@@ -133,13 +134,13 @@ public class SolicitacaoService {
         return solicitacaoRepository.save(sol);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     @CacheEvict(value = "dashboard_stats", allEntries = true)
     public Solicitacao aprovarEstorno(Long idSolicitacao, Long idAvaliador) {
         return avaliar(idSolicitacao, idAvaliador, StatusSolicitation.ESTORNO_PENDENTE, StatusSolicitation.INVALIDADA);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     @CacheEvict(value = "dashboard_stats", allEntries = true)
     public Solicitacao rejeitarEstorno(Long idSolicitacao, Long idAvaliador) {
         return avaliar(idSolicitacao, idAvaliador, StatusSolicitation.ESTORNO_PENDENTE, StatusSolicitation.APROVADA);
@@ -160,7 +161,7 @@ public class SolicitacaoService {
         return solicitacaoRepository.save(sol);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     @CacheEvict(value = "dashboard_stats", allEntries = true)
     public Solicitacao invalidarSolicitacao(Long idSolicitacao) {
         Colaborador logado = getColaboradorAutenticado();
@@ -172,7 +173,7 @@ public class SolicitacaoService {
         return solicitacaoRepository.save(solicitacao);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     @CacheEvict(value = "dashboard_stats", allEntries = true)
     public void cancelarSolicitacao(Long idSolicitacao) {
         Colaborador logado = getColaboradorAutenticado();
@@ -184,7 +185,7 @@ public class SolicitacaoService {
         solicitacaoRepository.save(solicitacao);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     @CacheEvict(value = "dashboard_stats", allEntries = true)
     public Solicitacao usufruirSolicitacao(Long idSolicitacao) {
         Colaborador logado = getColaboradorAutenticado();
