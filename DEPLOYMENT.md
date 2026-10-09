@@ -72,7 +72,7 @@ server {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;  # sobrescreve: o rate limiter usa o primeiro valor
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 30s;
     }
@@ -104,19 +104,19 @@ nginx -t && systemctl reload nginx
 **Passo 1: Subir apenas o banco (sem a API)**
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d banco
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d banco
 ```
 
 Aguardar healthcheck passar (retorna "healthy"):
 
 ```bash
-docker compose -f docker-compose.prod.yml ps banco
+docker compose --env-file .env.production -f docker-compose.prod.yml ps banco
 ```
 
 **Passo 2: Executar script SQL inicial no banco vazio**
 
 ```bash
-cat database/V1__schema_inicial.sql | docker compose -f docker-compose.prod.yml exec -T banco psql -U infofolga -d infofolga
+cat database/V1__schema_inicial.sql | docker compose --env-file .env.production -f docker-compose.prod.yml exec -T banco psql -U infofolga -d infofolga
 ```
 
 Não deve haver erros.
@@ -124,7 +124,7 @@ Não deve haver erros.
 **Passo 3: Validar que as tabelas foram criadas**
 
 ```bash
-docker compose -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga -c "\dt"
+docker compose --env-file .env.production -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga -c "\dt"
 ```
 
 Saída esperada:
@@ -141,7 +141,7 @@ Saída esperada:
 Verificar índices:
 
 ```bash
-docker compose -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga -c "\di"
+docker compose --env-file .env.production -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga -c "\di"
 ```
 
 Devem estar presentes: `idx_solicitacoes_colaborador_id`, `idx_solicitacoes_aprovador_id`, `idx_solicitacoes_status`, `idx_solicitacoes_tipo_status`, `idx_solicitacoes_data_inicio_data_fim`, `idx_solicitacoes_atualizado_em`.
@@ -149,13 +149,13 @@ Devem estar presentes: `idx_solicitacoes_colaborador_id`, `idx_solicitacoes_apro
 **Passo 4: Subir a API**
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d api
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d api
 ```
 
 **Passo 5: Monitorar logs da API**
 
 ```bash
-docker compose -f docker-compose.prod.yml logs -f api
+docker compose --env-file .env.production -f docker-compose.prod.yml logs -f api
 ```
 
 Aguardar mensagem como:
@@ -177,7 +177,7 @@ Deve responder com `200` ou `401` (esperado, sem token).
 **Passo 7: Inserir primeiro CEO no banco**
 
 ```bash
-docker compose -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga -c "
+docker compose --env-file .env.production -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga -c "
 INSERT INTO colaboradores (nome, cpf, email, senha, cargo, setor, role, status)
 VALUES ('CEO Inicial', '00000000001', 'ceo@empresa.com', '\$2a\$10\$HASH_BCRYPT_AQUI', 'CEO', 'Administração', 'CEO', 'ativo');
 "
@@ -218,8 +218,8 @@ Deve retornar um token JWT.
 - ✅ Primeiro CEO inserido no banco
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d
-docker compose -f docker-compose.prod.yml logs -f api
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+docker compose --env-file .env.production -f docker-compose.prod.yml logs -f api
 ```
 
 Aguardar `Started InfofolgaApiApplication in X.XX seconds`. Nenhuma `SchemaManagementException`.
@@ -229,16 +229,16 @@ Aguardar `Started InfofolgaApiApplication in X.XX seconds`. Nenhuma `SchemaManag
 Rebuild e reiniciar:
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --build
-docker compose -f docker-compose.prod.yml logs -f api
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+docker compose --env-file .env.production -f docker-compose.prod.yml logs -f api
 ```
 
 Ou, se usando imagem pré-built de um registry:
 
 ```bash
-docker compose -f docker-compose.prod.yml down
-docker compose -f docker-compose.prod.yml up -d
-docker compose -f docker-compose.prod.yml logs -f api
+docker compose --env-file .env.production -f docker-compose.prod.yml down
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+docker compose --env-file .env.production -f docker-compose.prod.yml logs -f api
 ```
 
 **Importante:** O Hibernate permanecerá com `SPRING_JPA_HIBERNATE_DDL_AUTO=validate`. Se o código incluir alterações de schema JPA (novas entidades, mudança de tipos, constraints), a API falhará no startup com `SchemaManagementException`.
@@ -253,7 +253,7 @@ Nesse caso:
 Verificar status dos containers:
 
 ```bash
-docker compose -f docker-compose.prod.yml ps
+docker compose --env-file .env.production -f docker-compose.prod.yml ps
 ```
 
 Todos devem estar em `Up`.
@@ -261,7 +261,7 @@ Todos devem estar em `Up`.
 Verificar saúde do banco:
 
 ```bash
-docker compose -f docker-compose.prod.yml exec banco pg_isready -U infofolga
+docker compose --env-file .env.production -f docker-compose.prod.yml exec banco pg_isready -U infofolga
 ```
 
 Resultado esperado: `/var/run/postgresql:5432 - accepting connections`
@@ -269,7 +269,7 @@ Resultado esperado: `/var/run/postgresql:5432 - accepting connections`
 Monitorar logs:
 
 ```bash
-docker compose -f docker-compose.prod.yml logs -f
+docker compose --env-file .env.production -f docker-compose.prod.yml logs -f
 ```
 
 ## Backup
@@ -300,12 +300,12 @@ Testar restore periodicamente em banco de teste.
 Se um deploy quebrou a aplicação:
 
 ```bash
-docker compose -f docker-compose.prod.yml down
+docker compose --env-file .env.production -f docker-compose.prod.yml down
 # Remover imagem antiga se necessário
 docker image rm <seu-registry>/infofolga-api:latest
 # Subir novamente (Docker puxará a imagem anterior ou rebuild)
-docker compose -f docker-compose.prod.yml up -d
-docker compose -f docker-compose.prod.yml logs -f api
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+docker compose --env-file .env.production -f docker-compose.prod.yml logs -f api
 ```
 
 Se o schema foi alterado e precisa de rollback:
@@ -313,7 +313,7 @@ Se o schema foi alterado e precisa de rollback:
 ```bash
 # Restaurar banco de um backup
 gzip -d < /backups/infofolga_20260101.sql.gz | \
-  docker compose -f docker-compose.prod.yml exec -T banco \
+  docker compose --env-file .env.production -f docker-compose.prod.yml exec -T banco \
     psql -U infofolga infofolga
 ```
 
@@ -322,20 +322,20 @@ gzip -d < /backups/infofolga_20260101.sql.gz | \
 **API não responde via nginx**
 - `curl -v http://127.0.0.1:8080/error` — verificar se API está respondendo localmente
 - `nginx -t` — validar configuração nginx
-- `docker compose -f docker-compose.prod.yml logs api` — verificar erro de startup
+- `docker compose --env-file .env.production -f docker-compose.prod.yml logs api` — verificar erro de startup
 
 **Banco não inicia**
-- `docker compose -f docker-compose.prod.yml logs banco` — erros de PostgreSQL
-- `docker compose -f docker-compose.prod.yml ps banco` — verificar se healthcheck passa
+- `docker compose --env-file .env.production -f docker-compose.prod.yml logs banco` — erros de PostgreSQL
+- `docker compose --env-file .env.production -f docker-compose.prod.yml ps banco` — verificar se healthcheck passa
 
 **Erro SchemaManagementException ao subir API**
 - Schema real diverge do mapeamento JPA
-- Verificar: `docker compose -f docker-compose.prod.yml logs api | grep -iE "schema|diverge"`
+- Verificar: `docker compose --env-file .env.production -f docker-compose.prod.yml logs api | grep -iE "schema|diverge"`
 - Solução: executar migration SQL (ex: `V2__...sql`) manualmente, depois redeploy código
 
 **Conexão recusada na porta 8080**
-- `docker compose -f docker-compose.prod.yml exec api netstat -tulpn | grep 8080` — verificar porta
-- `docker compose -f docker-compose.prod.yml ps api` — verificar se container está UP
+- `docker compose --env-file .env.production -f docker-compose.prod.yml exec api netstat -tulpn | grep 8080` — verificar porta
+- `docker compose --env-file .env.production -f docker-compose.prod.yml ps api` — verificar se container está UP
 
 **JWT_SECRET inválido**
 - JWT_SECRET deve ter mínimo 32 bytes
@@ -343,6 +343,6 @@ gzip -d < /backups/infofolga_20260101.sql.gz | \
 - Alterar em `.env.production` e fazer redeploy
 
 **Banco está cheio**
-- `docker compose -f docker-compose.prod.yml exec banco du -h /var/lib/postgresql/data`
+- `docker compose --env-file .env.production -f docker-compose.prod.yml exec banco du -h /var/lib/postgresql/data`
 - Limpar backups antigos de `/backups/`
-- Se necessário, vacuum no PostgreSQL: `docker compose -f docker-compose.prod.yml exec banco vacuumdb -U infofolga infofolga`
+- Se necessário, vacuum no PostgreSQL: `docker compose --env-file .env.production -f docker-compose.prod.yml exec banco vacuumdb -U infofolga infofolga`

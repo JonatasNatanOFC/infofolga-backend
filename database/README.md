@@ -16,19 +16,19 @@ O banco deve estar vazio ou sem tabelas do InfoFolga. Em produção, nunca re-ex
 
 ```bash
 # Via psql com banco rodando em container
-docker-compose -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga < database/V1__schema_inicial.sql
+docker compose --env-file .env.production -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga < database/V1__schema_inicial.sql
 
 # OU, local contra banco em container
 psql -h localhost -p 5441 -U infofolga -d infofolga < database/V1__schema_inicial.sql
 
 # OU, direto no container via COPY (stdin)
-cat database/V1__schema_inicial.sql | docker-compose -f docker-compose.prod.yml exec -T banco psql -U infofolga -d infofolga
+cat database/V1__schema_inicial.sql | docker compose --env-file .env.production -f docker-compose.prod.yml exec -T banco psql -U infofolga -d infofolga
 ```
 
 ### Validar execução
 
 ```bash
-docker-compose -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga -c "
+docker compose --env-file .env.production -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga -c "
 SELECT table_name FROM information_schema.tables 
 WHERE table_schema = 'public' ORDER BY table_name;
 "
@@ -41,7 +41,7 @@ WHERE table_schema = 'public' ORDER BY table_name;
 Inspecionar schema de uma tabela:
 
 ```bash
-docker-compose -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga -c "\d colaboradores"
+docker compose --env-file .env.production -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga -c "\d colaboradores"
 ```
 
 ## Como iniciar a API com `ddl-auto=validate`
@@ -50,7 +50,7 @@ docker-compose -f docker-compose.prod.yml exec banco psql -U infofolga -d infofo
 
 ```bash
 # Rodar script
-docker-compose -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga < database/V1__schema_inicial.sql
+docker compose --env-file .env.production -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga < database/V1__schema_inicial.sql
 ```
 
 2. **Verificar `.env.production`:**
@@ -64,10 +64,10 @@ SPRING_PROFILES_ACTIVE=prod
 3. **Subir a API:**
 
 ```bash
-docker-compose -f docker-compose.prod.yml up -d api
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d api
 
 # Monitorar logs
-docker-compose -f docker-compose.prod.yml logs -f api
+docker compose --env-file .env.production -f docker-compose.prod.yml logs -f api
 ```
 
 4. **Verificar startup:**
@@ -117,7 +117,7 @@ Nesses casos, **PARE e não avance**. Verifique:
 Após validar que a API subiu com sucesso:
 
 ```bash
-docker-compose -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga
+docker compose --env-file .env.production -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga
 
 -- No psql:
 -- Gerar hash BCrypt de uma senha (ex: "senha123"):
@@ -142,7 +142,7 @@ VALUES ('CEO Inicial', '00000000001', 'ceo@empresa.com', '$2a$10$YOUR_BCRYPT_HAS
 
 1. Executar `V1__schema_inicial.sql` no banco vazio (antes de subir a API)
 2. Verificar schema com `\d` no psql
-3. Subir a API com `docker-compose -f docker-compose.prod.yml up -d`
+3. Subir a API com `docker compose --env-file .env.production -f docker-compose.prod.yml up -d`
 4. Monitorar logs para erros de SchemaManagementException
 5. Se OK, inserir primeiro CEO manualmente via SQL
 6. Testar login via curl/Postman

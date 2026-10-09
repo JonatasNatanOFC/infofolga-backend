@@ -1,8 +1,6 @@
 # docker-compose.prod.yml
-# Orquestração de produção. Deploy: docker compose -f docker-compose.prod.yml up -d
+# Orquestração de produção. Deploy: docker compose --env-file .env.production -f docker-compose.prod.yml up -d
 # Presupõe: .env.production existente com valores reais de secrets
-
-version: '3.8'
 
 services:
   banco:
@@ -22,6 +20,10 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
     networks:
       - infofolga_network
 
@@ -39,13 +41,15 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO}
       JWT_SECRET: ${JWT_SECRET}
-      API_BIND: ${API_BIND}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Heap limitado: a instância divide a RAM com o Postgres
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=50
     ports:
       - "${API_BIND}:8080:8080"
     restart: unless-stopped
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
     networks:
       - infofolga_network
 
