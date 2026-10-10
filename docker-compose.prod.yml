@@ -35,6 +35,8 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      # Atrás do nginx: sem isto o Spring enxerga http://…:80, trata o próprio site (https) como outra origem e barra por CORS
+      SERVER_FORWARD_HEADERS_STRATEGY: native
       PORT: ${PORT}
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
