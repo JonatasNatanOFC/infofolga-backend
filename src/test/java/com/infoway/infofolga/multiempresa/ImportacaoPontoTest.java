@@ -4,6 +4,8 @@ import com.infoway.infofolga.dto.AjusteSaldoDto;
 import com.infoway.infofolga.model.Colaborador;
 import com.infoway.infofolga.pontuacao.SituacaoDia;
 import com.infoway.infofolga.repository.ColaboradorRepository;
+import com.infoway.infofolga.pontuacao.FeriadosNacionais;
+import com.infoway.infofolga.service.BancoDeHorasService;
 import com.infoway.infofolga.service.ExtratoService;
 import com.infoway.infofolga.service.ImportacaoPontoService;
 import org.junit.jupiter.api.AfterEach;
@@ -24,7 +26,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.YearMonth;
 import java.util.List;
 
@@ -51,6 +55,7 @@ class ImportacaoPontoTest {
     @Autowired private ColaboradorRepository colaboradores;
     @Autowired private ImportacaoPontoService importacao;
     @Autowired private ExtratoService extratos;
+    @Autowired private BancoDeHorasService bancoDeHoras;
 
     private long anaA;
 
@@ -169,6 +174,49 @@ class ImportacaoPontoTest {
         Colaborador ana = logarComo(CPF_ANA_A);
         var erro = assertThrows(ResponseStatusException.class, () -> extratos.lancarAjuste(anaA, ajuste, ana));
         assertEquals(HttpStatus.FORBIDDEN, erro.getStatusCode());
+    }
+
+    @Test
+    void folgaSemSaldoSegueARegraDaEmpresa() {
+        jdbc.update("DELETE FROM solicitacoes");
+        LocalDate pedida = diaUtil(LocalDate.now(ZoneId.of("America/Sao_Paulo")).plusDays(10));
+        // Outra folga do banco já aprovada e ainda não apurada: os pontos dela ficam reservados.
+        jdbc.update("""
+                INSERT INTO solicitacoes (empresa_id, colaborador_id, tipo, status, data_inicio, data_fim, criado_em,
+                    versao, motivo_folga, desconta_saldo)
+                SELECT empresa_id, id, 'FOLGA', 'APROVADA', ?, ?, NOW(), 0, 'BANCO_DE_HORAS', true
+                FROM colaboradores WHERE id = ?
+                """, pedida.minusDays(7), pedida.minusDays(7), anaA);
+        Colaborador ana = logarComo(CPF_ANA_A);
+
+        var avaliacao = bancoDeHoras.avaliarFolga(ana, pedida, pedida).orElseThrow();
+        assertIgual("-8.00", avaliacao.saldoDisponivel());
+        assertIgual("8.00", avaliacao.pontosDaFolga());
+        assertFalse(avaliacao.bloqueia()); // a empresa está em AVISAR
+
+        jdbc.update("UPDATE configuracao_pontuacao SET politica_sem_saldo = 'BLOQUEAR'");
+        assertTrue(bancoDeHoras.avaliarFolga(ana, pedida, pedida).orElseThrow().bloqueia());
+
+        Colaborador rh = logarComo(CPF_RH_A);
+        extratos.lancarAjuste(anaA, new AjusteSaldoDto(null, LocalDate.of(2026, 9, 1), new BigDecimal("20"),
+                "Saldo do sistema anterior", null, null), rh);
+        logarComo(CPF_ANA_A);
+        var comSaldo = bancoDeHoras.avaliarFolga(ana, pedida, pedida).orElseThrow();
+        assertIgual("12.00", comSaldo.saldoDisponivel());
+        assertFalse(comSaldo.bloqueia());
+
+        logarComo(CPF_RH_A); // RH terceirizado (padrão): a regra nem se aplica
+        assertTrue(bancoDeHoras.avaliarFolga(rh, pedida, pedida).isEmpty());
+    }
+
+    /** Próximo dia de semana que não é feriado nacional, para a jornada ser de 8h. */
+    private static LocalDate diaUtil(LocalDate dia) {
+        while (dia.getDayOfWeek() == DayOfWeek.SATURDAY || dia.getDayOfWeek() == DayOfWeek.SUNDAY
+                || FeriadosNacionais.doAno(dia.getYear()).containsKey(dia)
+                || FeriadosNacionais.doAno(dia.getYear()).containsKey(dia.minusDays(7))) {
+            dia = dia.plusDays(1);
+        }
+        return dia;
     }
 
     private Colaborador logarComo(String cpf) {

@@ -30,12 +30,31 @@ public class SolicitacaoService {
     private final SolicitacaoRepository solicitacaoRepository;
     private final ColaboradorRepository colaboradorRepository;
     private final RegrasPontuacaoService regras;
+    private final BancoDeHorasService bancoDeHoras;
 
     SolicitacaoService(SolicitacaoRepository solicitacaoRepository, ColaboradorRepository colaboradorRepository,
-                       RegrasPontuacaoService regras) {
+                       RegrasPontuacaoService regras, BancoDeHorasService bancoDeHoras) {
         this.solicitacaoRepository = solicitacaoRepository;
         this.colaboradorRepository = colaboradorRepository;
         this.regras = regras;
+        this.bancoDeHoras = bancoDeHoras;
+    }
+
+    /** Folga do banco de horas: guarda o saldo do momento e barra o pedido se a empresa bloqueia folga sem saldo. */
+    private void aplicarRegraDeSaldo(Solicitacao solicitacao, Colaborador logado) {
+        bancoDeHoras.avaliarFolga(logado, solicitacao.getDataInicio(), solicitacao.getDataFim()).ifPresent(a -> {
+            if (a.bloqueia()) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, String.format(
+                        "Saldo insuficiente: você tem %s e esta folga usa %s. Escolha outro motivo ou fale com o RH.",
+                        formatar(a.saldoDisponivel()), formatar(a.pontosDaFolga())));
+            }
+            solicitacao.setSaldoNoPedido(a.saldoDisponivel());
+            solicitacao.setPontosDaFolga(a.pontosDaFolga());
+        });
+    }
+
+    private static String formatar(java.math.BigDecimal pontos) {
+        return pontos.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString().replace('.', ',');
     }
 
     private Colaborador getColaboradorAutenticado() {
@@ -120,6 +139,9 @@ public class SolicitacaoService {
             solicitacao.setMotivoFolga(motivo);
             // Sem banco de horas (CEO, gerente, RH terceirizado), desconto não se aplica: fica nulo.
             solicitacao.setDescontaSaldo(regras.temBancoDeHoras(logado) ? motivo.descontaPorPadrao() : null);
+            if (Boolean.TRUE.equals(solicitacao.getDescontaSaldo())) {
+                aplicarRegraDeSaldo(solicitacao, logado);
+            }
         }
 
         solicitacao.setNomeHistorico(logado.getNome());

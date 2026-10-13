@@ -73,6 +73,14 @@ public class Solicitacao {
     @Column(name = "desconta_saldo")
     private Boolean descontaSaldo;
 
+    /** Saldo disponível quando a folga do banco foi pedida (null quando não se aplica). */
+    @Column(name = "saldo_no_pedido", precision = 7, scale = 2)
+    private java.math.BigDecimal saldoNoPedido;
+
+    /** Quantos pontos a folga usa: a jornada prevista dos dias pedidos. */
+    @Column(name = "pontos_da_folga", precision = 7, scale = 2)
+    private java.math.BigDecimal pontosDaFolga;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime criadoEm;
 

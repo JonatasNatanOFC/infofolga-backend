@@ -32,7 +32,8 @@ class RegrasDeNegocioTest {
     private final SolicitacaoRepository solicitacaoRepository = mock(SolicitacaoRepository.class);
     private final ColaboradorRepository colaboradorRepository = mock(ColaboradorRepository.class);
     private final SolicitacaoService solicitacaoService =
-            new SolicitacaoService(solicitacaoRepository, colaboradorRepository, mock(RegrasPontuacaoService.class));
+            new SolicitacaoService(solicitacaoRepository, colaboradorRepository, mock(RegrasPontuacaoService.class),
+                    mock(BancoDeHorasService.class));
     private final ColaboradorService colaboradorService =
             new ColaboradorService(colaboradorRepository, mock(PasswordEncoder.class));
 

@@ -1,14 +1,14 @@
 package com.infoway.infofolga.service;
 
+import com.infoway.infofolga.model.Colaborador;
 import com.infoway.infofolga.model.ConfiguracaoPontuacao;
 import com.infoway.infofolga.pontuacao.FeriadosNacionais;
+import com.infoway.infofolga.pontuacao.PoliticaSemSaldo;
 import com.infoway.infofolga.pontuacao.RegrasPontuacao;
 import com.infoway.infofolga.repository.ConfiguracaoPontuacaoRepository;
 import com.infoway.infofolga.repository.FeriadoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import com.infoway.infofolga.model.Colaborador;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -41,6 +41,13 @@ public class RegrasPontuacaoService {
         return configuracoes.findFirstByVigenteDesdeLessThanEqualOrderByVigenteDesdeDesc(LocalDate.now(FUSO))
                 .map(ConfiguracaoPontuacao::isRhTemBancoDeHoras)
                 .orElse(false);
+    }
+
+    /** O que fazer quando pedem folga sem saldo, pelas regras em vigor hoje; vazio se a empresa não tem regras. */
+    @Transactional(readOnly = true)
+    public Optional<PoliticaSemSaldo> politicaSemSaldo() {
+        return configuracoes.findFirstByVigenteDesdeLessThanEqualOrderByVigenteDesdeDesc(LocalDate.now(FUSO))
+                .map(ConfiguracaoPontuacao::getPoliticaSemSaldo);
     }
 
     public boolean temBancoDeHoras(Colaborador colaborador) {

@@ -6,6 +6,7 @@ import com.infoway.infofolga.util.FotoUtils;
 import com.infoway.infofolga.model.StatusSolicitation;
 import com.infoway.infofolga.model.TipoSolicitacao;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -26,7 +27,9 @@ public record SolicitacaoDto(
                 ColaboradorResumoDto colaborador,
                 ColaboradorResumoDto aprovador,
                 MotivoFolga motivoFolga,
-                Boolean descontaSaldo) {
+                Boolean descontaSaldo,
+                BigDecimal saldoNoPedido,
+                BigDecimal pontosDaFolga) {
         public SolicitacaoDto(Solicitacao solicitacao) {
                 this(
                                 solicitacao.getId(),
@@ -46,6 +49,8 @@ public record SolicitacaoDto(
                                                 : null,
                                 solicitacao.getAprovador() != null ? new ColaboradorResumoDto(solicitacao.getAprovador()) : null,
                                 solicitacao.getMotivoFolga(),
-                                solicitacao.getDescontaSaldo());
+                                solicitacao.getDescontaSaldo(),
+                                solicitacao.getSaldoNoPedido(),
+                                solicitacao.getPontosDaFolga());
         }
 }

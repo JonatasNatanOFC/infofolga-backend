@@ -5,6 +5,7 @@ import com.infoway.infofolga.dto.ExtratoDto;
 import com.infoway.infofolga.dto.ResultadoImportacaoDto;
 import com.infoway.infofolga.dto.SaldoColaboradorDto;
 import com.infoway.infofolga.model.Colaborador;
+import com.infoway.infofolga.service.BancoDeHorasService;
 import com.infoway.infofolga.service.ExtratoService;
 import com.infoway.infofolga.service.ImportacaoPontoService;
 import jakarta.validation.Valid;
@@ -30,10 +31,29 @@ public class PontosController {
 
     private final ExtratoService service;
     private final ImportacaoPontoService importacao;
+    private final BancoDeHorasService bancoDeHoras;
 
-    public PontosController(ExtratoService service, ImportacaoPontoService importacao) {
+    public PontosController(ExtratoService service, ImportacaoPontoService importacao,
+                            BancoDeHorasService bancoDeHoras) {
         this.service = service;
         this.importacao = importacao;
+        this.bancoDeHoras = bancoDeHoras;
+    }
+
+    /**
+     * Antes de pedir uma folga do banco: saldo disponível, quanto a folga usa e a regra da empresa.
+     * 204 quando não se aplica (perfil sem banco de horas ou empresa sem regras).
+     */
+    @GetMapping("/previa-folga")
+    public ResponseEntity<BancoDeHorasService.AvaliacaoFolga> previaFolga(
+            @AuthenticationPrincipal Colaborador logado,
+            @RequestParam java.time.LocalDate inicio, @RequestParam java.time.LocalDate fim) {
+        if (fim.isBefore(inicio) || inicio.plusDays(366).isBefore(fim)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Período inválido.");
+        }
+        return bancoDeHoras.avaliarFolga(logado, inicio, fim)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     /** mes no formato AAAA-MM; sem ele, o mês atual. */
