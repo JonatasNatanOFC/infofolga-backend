@@ -1,5 +1,6 @@
 package com.infoway.infofolga.dto;
 
+import com.infoway.infofolga.model.MotivoFolga;
 import com.infoway.infofolga.model.Solicitacao;
 import com.infoway.infofolga.util.FotoUtils;
 import com.infoway.infofolga.model.StatusSolicitation;
@@ -23,7 +24,9 @@ public record SolicitacaoDto(
                 LocalDateTime criadoEm,
                 LocalDateTime atualizadoEm,
                 ColaboradorResumoDto colaborador,
-                ColaboradorResumoDto aprovador) {
+                ColaboradorResumoDto aprovador,
+                MotivoFolga motivoFolga,
+                Boolean descontaSaldo) {
         public SolicitacaoDto(Solicitacao solicitacao) {
                 this(
                                 solicitacao.getId(),
@@ -41,6 +44,8 @@ public record SolicitacaoDto(
                                 solicitacao.getAtualizadoEm(),
                                 solicitacao.getColaborador() != null ? new ColaboradorResumoDto(solicitacao.getColaborador())
                                                 : null,
-                                solicitacao.getAprovador() != null ? new ColaboradorResumoDto(solicitacao.getAprovador()) : null);
+                                solicitacao.getAprovador() != null ? new ColaboradorResumoDto(solicitacao.getAprovador()) : null,
+                                solicitacao.getMotivoFolga(),
+                                solicitacao.getDescontaSaldo());
         }
 }

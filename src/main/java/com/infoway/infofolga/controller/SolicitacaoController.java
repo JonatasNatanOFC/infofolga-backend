@@ -1,5 +1,6 @@
 package com.infoway.infofolga.controller;
 
+import com.infoway.infofolga.dto.AprovarSolicitacaoDto;
 import com.infoway.infofolga.dto.CriarSolicitacaoDto;
 import com.infoway.infofolga.dto.PaginaDto;
 import com.infoway.infofolga.dto.RejeitarSolicitacaoDto;
@@ -70,8 +71,12 @@ public class SolicitacaoController {
 
     @PutMapping("/{id}/aprovar")
     @PreAuthorize("hasRole('GERENTE') or hasRole('CEO')")
-    public ResponseEntity<SolicitacaoDto> aprovar(@PathVariable Long id, @AuthenticationPrincipal Colaborador avaliadorLogado) {
-        var solicitacao = solicitacaoService.aprovarSolicitacao(id, avaliadorLogado.getId());
+    public ResponseEntity<SolicitacaoDto> aprovar(
+            @PathVariable Long id,
+            @RequestBody(required = false) AprovarSolicitacaoDto dto,
+            @AuthenticationPrincipal Colaborador avaliadorLogado) {
+        Boolean descontarSaldo = dto != null ? dto.descontarSaldo() : null;
+        var solicitacao = solicitacaoService.aprovarSolicitacao(id, avaliadorLogado.getId(), descontarSaldo);
         return ResponseEntity.ok(new SolicitacaoDto(solicitacao));
     }
 

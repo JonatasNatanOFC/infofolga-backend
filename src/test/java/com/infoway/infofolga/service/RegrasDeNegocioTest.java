@@ -62,7 +62,7 @@ class RegrasDeNegocioTest {
 
     private void criar(TipoSolicitacao tipo, LocalDate inicio, LocalDate fim, HttpStatus esperado) {
         var e = assertThrows(ResponseStatusException.class,
-                () -> solicitacaoService.criarSolicitacao(new CriarSolicitacaoDto(tipo, inicio, fim, null)));
+                () -> solicitacaoService.criarSolicitacao(new CriarSolicitacaoDto(tipo, inicio, fim, null, null)));
         assertEquals(esperado, status(e));
     }
 
@@ -75,7 +75,7 @@ class RegrasDeNegocioTest {
         when(solicitacaoRepository.findById(10L)).thenReturn(Optional.of(sol));
         when(colaboradorRepository.findById(1L)).thenReturn(Optional.of(gerente));
 
-        var e = assertThrows(ResponseStatusException.class, () -> solicitacaoService.aprovarSolicitacao(10L, 1L));
+        var e = assertThrows(ResponseStatusException.class, () -> solicitacaoService.aprovarSolicitacao(10L, 1L, null));
         assertEquals(HttpStatus.FORBIDDEN, status(e));
     }
 

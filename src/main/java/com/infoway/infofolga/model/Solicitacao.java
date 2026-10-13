@@ -65,6 +65,14 @@ public class Solicitacao {
     @Column(columnDefinition = "TEXT")
     private String motivoResposta;
 
+    // Só para folgas. Pedidos antigos (antes da pontuação) e férias ficam sem motivo e não mexem no saldo.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "motivo_folga")
+    private MotivoFolga motivoFolga;
+
+    @Column(name = "desconta_saldo")
+    private Boolean descontaSaldo;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime criadoEm;
 

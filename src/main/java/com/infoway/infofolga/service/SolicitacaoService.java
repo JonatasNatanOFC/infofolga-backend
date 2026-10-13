@@ -2,6 +2,7 @@ package com.infoway.infofolga.service;
 
 import com.infoway.infofolga.dto.CriarSolicitacaoDto;
 import com.infoway.infofolga.model.Colaborador;
+import com.infoway.infofolga.model.MotivoFolga;
 import com.infoway.infofolga.model.Role;
 import com.infoway.infofolga.model.Solicitacao;
 import com.infoway.infofolga.model.StatusSolicitation;
@@ -111,6 +112,11 @@ public class SolicitacaoService {
         solicitacao.setMotivo(dto.motivo());
         solicitacao.setTipo(dto.tipo());
         solicitacao.setStatus(StatusSolicitation.PENDENTE);
+        if (dto.tipo() == TipoSolicitacao.FOLGA) {
+            MotivoFolga motivo = dto.motivoFolga() != null ? dto.motivoFolga() : MotivoFolga.BANCO_DE_HORAS;
+            solicitacao.setMotivoFolga(motivo);
+            solicitacao.setDescontaSaldo(motivo.descontaPorPadrao());
+        }
 
         solicitacao.setNomeHistorico(logado.getNome());
         solicitacao.setCargoHistorico(logado.getCargo());
@@ -122,8 +128,14 @@ public class SolicitacaoService {
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     @CacheEvict(value = "dashboard_stats", allEntries = true)
-    public Solicitacao aprovarSolicitacao(Long idSolicitacao, Long idAvaliador) {
-        return avaliar(idSolicitacao, idAvaliador, StatusSolicitation.PENDENTE, StatusSolicitation.APROVADA);
+    public Solicitacao aprovarSolicitacao(Long idSolicitacao, Long idAvaliador, Boolean descontarSaldo) {
+        Solicitacao sol = avaliar(idSolicitacao, idAvaliador, StatusSolicitation.PENDENTE, StatusSolicitation.APROVADA);
+        // Quem aprova decide se a folga sai do banco de horas (ex.: day off de aniversário não sai).
+        if (sol.getTipo() == TipoSolicitacao.FOLGA && descontarSaldo != null) {
+            sol.setDescontaSaldo(descontarSaldo);
+            return solicitacaoRepository.save(sol);
+        }
+        return sol;
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
