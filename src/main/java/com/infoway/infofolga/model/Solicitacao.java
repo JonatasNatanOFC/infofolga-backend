@@ -2,6 +2,7 @@ package com.infoway.infofolga.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.TenantId;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -18,6 +19,11 @@ public class Solicitacao {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    // Preenchido e filtrado pelo Hibernate a partir da empresa do usuário logado (EmpresaAtualResolver).
+    @TenantId
+    @Column(name = "empresa_id", nullable = false, updatable = false)
+    private Long empresaId;
 
     @ManyToOne
     @JoinColumn(name = "colaborador_id")

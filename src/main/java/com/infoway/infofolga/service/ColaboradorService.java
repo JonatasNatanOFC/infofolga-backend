@@ -48,7 +48,7 @@ public class ColaboradorService {
 
         if (dto.email() != null && !dto.email().isBlank()) {
             String email = dto.email().trim();
-            if (!email.equalsIgnoreCase(colaborador.getEmail()) && colaboradorRepository.existsByEmailIgnoreCase(email)) {
+            if (!email.equalsIgnoreCase(colaborador.getEmail()) && colaboradorRepository.emailJaCadastrado(email)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Já existe um colaborador com este e-mail.");
             }
             colaborador.setEmail(email);
@@ -81,10 +81,10 @@ public class ColaboradorService {
     @CacheEvict(value = "dashboard_stats", allEntries = true)
     public UsuarioDto cadastrar(CadastroColaboradorDto dto) {
         String cpf = validarCpf(dto.cpf());
-        if (colaboradorRepository.existsByCpf(cpf)) {
+        if (colaboradorRepository.cpfJaCadastrado(cpf)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Já existe um colaborador com este CPF.");
         }
-        if (colaboradorRepository.existsByEmailIgnoreCase(dto.email().trim())) {
+        if (colaboradorRepository.emailJaCadastrado(dto.email().trim())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Já existe um colaborador com este e-mail.");
         }
 
@@ -111,7 +111,7 @@ public class ColaboradorService {
 
         if (dto.cpf() != null && !dto.cpf().isBlank() && !CpfUtils.limpar(dto.cpf()).equals(colaborador.getCpf())) {
             String cpf = validarCpf(dto.cpf());
-            if (colaboradorRepository.existsByCpf(cpf)) {
+            if (colaboradorRepository.cpfJaCadastrado(cpf)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Já existe um colaborador com este CPF.");
             }
             colaborador.setCpf(cpf);
@@ -122,7 +122,7 @@ public class ColaboradorService {
             if (!email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Formato de e-mail inválido");
             }
-            if (!email.equalsIgnoreCase(colaborador.getEmail()) && colaboradorRepository.existsByEmailIgnoreCase(email)) {
+            if (!email.equalsIgnoreCase(colaborador.getEmail()) && colaboradorRepository.emailJaCadastrado(email)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Já existe um colaborador com este e-mail.");
             }
             colaborador.setEmail(email);

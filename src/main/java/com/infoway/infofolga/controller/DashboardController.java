@@ -1,9 +1,11 @@
 package com.infoway.infofolga.controller;
 
 import com.infoway.infofolga.dto.DashboardStatsDto;
+import com.infoway.infofolga.model.Colaborador;
 import com.infoway.infofolga.service.DashboardService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,8 +22,8 @@ public class DashboardController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('GERENTE', 'CEO')")
-    public ResponseEntity<DashboardStatsDto> getStats() {
-        DashboardStatsDto stats = dashboardService.getStats();
+    public ResponseEntity<DashboardStatsDto> getStats(@AuthenticationPrincipal Colaborador logado) {
+        DashboardStatsDto stats = dashboardService.getStats(logado.getEmpresaId());
         return ResponseEntity.ok(stats);
     }
 }

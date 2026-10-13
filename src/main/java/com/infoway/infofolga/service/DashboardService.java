@@ -22,8 +22,9 @@ public class DashboardService {
                 this.colaboradorRepository = colaboradorRepository;
         }
 
-        @Cacheable(value = "dashboard_stats")
-        public DashboardStatsDto getStats() {
+        // As consultas já vêm filtradas pela empresa (@TenantId); o parâmetro só separa o cache de cada empresa.
+        @Cacheable(value = "dashboard_stats", key = "#empresaId")
+        public DashboardStatsDto getStats(Long empresaId) {
                 long totalColaboradores = colaboradorRepository.count();
                 long totalSolicitacoes = solicitacaoRepository.count();
 
