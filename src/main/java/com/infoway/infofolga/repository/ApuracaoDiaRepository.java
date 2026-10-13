@@ -19,4 +19,20 @@ public interface ApuracaoDiaRepository extends JpaRepository<ApuracaoDia, Long> 
 
     @Query("SELECT COALESCE(SUM(a.pontos), 0) FROM ApuracaoDia a WHERE a.colaboradorId = :colaboradorId")
     BigDecimal saldoDe(@Param("colaboradorId") Long colaboradorId);
+
+    /** Saldo e dias com batida faltando de cada colaborador da empresa, numa consulta só. */
+    @Query("""
+            SELECT a.colaboradorId AS colaboradorId, SUM(a.pontos) AS saldo,
+                   SUM(CASE WHEN a.inconsistente = true THEN 1 ELSE 0 END) AS diasPendentes
+            FROM ApuracaoDia a GROUP BY a.colaboradorId
+            """)
+    List<SaldoResumo> saldosPorColaborador();
+
+    interface SaldoResumo {
+        Long getColaboradorId();
+
+        BigDecimal getSaldo();
+
+        Long getDiasPendentes();
+    }
 }
