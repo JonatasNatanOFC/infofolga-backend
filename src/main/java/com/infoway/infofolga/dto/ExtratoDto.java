@@ -10,7 +10,8 @@ import java.util.List;
  * @param saldoDoMes  soma só dos dias do mês pedido
  * @param mes         "AAAA-MM"
  * @param dias        do mais recente para o mais antigo
+ * @param ajustes     lançamentos manuais do mês (já somados em saldo e saldoDoMes)
  */
 public record ExtratoDto(ColaboradorResumoDto colaborador, BigDecimal saldo, BigDecimal saldoDoMes, String mes,
-                         List<DiaExtratoDto> dias) {
+                         List<DiaExtratoDto> dias, List<AjusteSaldoDto> ajustes) {
 }

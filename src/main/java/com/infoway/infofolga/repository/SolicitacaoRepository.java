@@ -25,6 +25,14 @@ public interface SolicitacaoRepository extends JpaRepository<Solicitacao, Long> 
                                @Param("inicio") LocalDate inicio,
                                @Param("fim") LocalDate fim);
 
+    /** Folgas e férias de um colaborador que tocam o período, para a apuração saber o que aconteceu em cada dia. */
+    @Query("SELECT s FROM Solicitacao s WHERE s.colaborador.id = :id AND s.status IN :status "
+            + "AND s.dataInicio <= :fim AND s.dataFim >= :inicio")
+    List<Solicitacao> noPeriodo(@Param("id") Long idColaborador,
+                                @Param("status") Collection<StatusSolicitation> status,
+                                @Param("inicio") LocalDate inicio,
+                                @Param("fim") LocalDate fim);
+
     @Query("SELECT s FROM Solicitacao s JOIN FETCH s.colaborador LEFT JOIN FETCH s.aprovador ORDER BY s.id DESC")
     List<Solicitacao> findAllOtimizado();
 
