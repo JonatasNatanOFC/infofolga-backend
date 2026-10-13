@@ -127,7 +127,7 @@ class ConfiguracaoPontuacaoTest {
         assertTrue(regras.ehFeriado(LocalDate.of(ano + 2, 12, 10)));
         assertFalse(regras.ehFeriado(LocalDate.of(ano - 1, 12, 10)));
         assertTrue(configuracao.feriadosDoAno(ano + 2).stream()
-                .anyMatch(f -> f.id().equals(emancipacao.id()) && f.data().equals(LocalDate.of(ano + 2, 12, 10)) && f.anual()));
+                .anyMatch(f -> emancipacao.id().equals(f.id()) && f.data().equals(LocalDate.of(ano + 2, 12, 10)) && f.anual()));
         assertTrue(configuracao.feriadosDoAno(ano - 1).stream().noneMatch(f -> !f.nacional()));
 
         // O mesmo dia em outro ano já está coberto pelo anual.
