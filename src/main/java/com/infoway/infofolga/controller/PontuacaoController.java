@@ -1,6 +1,7 @@
 package com.infoway.infofolga.controller;
 
 import com.infoway.infofolga.dto.ConfiguracaoPontuacaoDto;
+import com.infoway.infofolga.dto.ExemploPontuacaoDto;
 import com.infoway.infofolga.dto.FeriadoDto;
 import com.infoway.infofolga.model.Colaborador;
 import com.infoway.infofolga.service.ConfiguracaoPontuacaoService;
@@ -34,6 +35,12 @@ public class PontuacaoController {
     public ResponseEntity<ConfiguracaoPontuacaoDto> salvar(@RequestBody @Valid ConfiguracaoPontuacaoDto dto,
                                                            @AuthenticationPrincipal Colaborador logado) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.salvar(dto, logado));
+    }
+
+    /** Mostra o efeito das regras do formulário em dias de exemplo, antes de salvar. */
+    @PostMapping("/simular")
+    public ResponseEntity<List<ExemploPontuacaoDto>> simular(@RequestBody @Valid ConfiguracaoPontuacaoDto dto) {
+        return ResponseEntity.ok(service.simular(dto));
     }
 
     @GetMapping("/feriados")

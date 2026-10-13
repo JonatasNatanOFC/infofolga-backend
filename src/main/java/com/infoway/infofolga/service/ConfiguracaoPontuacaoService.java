@@ -1,10 +1,12 @@
 package com.infoway.infofolga.service;
 
 import com.infoway.infofolga.dto.ConfiguracaoPontuacaoDto;
+import com.infoway.infofolga.dto.ExemploPontuacaoDto;
 import com.infoway.infofolga.dto.FeriadoDto;
 import com.infoway.infofolga.model.Colaborador;
 import com.infoway.infofolga.model.ConfiguracaoPontuacao;
 import com.infoway.infofolga.model.Feriado;
+import com.infoway.infofolga.pontuacao.ExemplosPontuacao;
 import com.infoway.infofolga.pontuacao.FeriadosNacionais;
 import com.infoway.infofolga.repository.ColaboradorRepository;
 import com.infoway.infofolga.repository.ConfiguracaoPontuacaoRepository;
@@ -68,13 +70,21 @@ public class ConfiguracaoPontuacaoService {
         return new ConfiguracaoPontuacaoDto(configuracoes.save(versao), autor.getNome());
     }
 
+    /** Apura dias de exemplo com as regras do formulário, sem salvar nada. */
+    public List<ExemploPontuacaoDto> simular(ConfiguracaoPontuacaoDto dto) {
+        ConfiguracaoPontuacao rascunho = new ConfiguracaoPontuacao();
+        dto.aplicarEm(rascunho);
+        return ExemplosPontuacao.com(rascunho.paraRegras()).stream().map(ExemploPontuacaoDto::new).toList();
+    }
+
     /** Nacionais (calculados) e da empresa, em ordem de data. */
     @Transactional(readOnly = true)
     public List<FeriadoDto> feriadosDoAno(int ano) {
         List<FeriadoDto> lista = new ArrayList<>();
-        FeriadosNacionais.doAno(ano).forEach((data, nome) -> lista.add(new FeriadoDto(null, data, nome, true)));
-        feriados.findByDataBetweenOrderByData(LocalDate.of(ano, 1, 1), LocalDate.of(ano, 12, 31))
-                .forEach(f -> lista.add(new FeriadoDto(f.getId(), f.getData(), f.getDescricao(), false)));
+        FeriadosNacionais.doAno(ano).forEach((data, nome) -> lista.add(new FeriadoDto(null, data, nome, false, true)));
+        for (Feriado f : feriados.candidatosEntre(LocalDate.of(ano, 1, 1), LocalDate.of(ano, 12, 31))) {
+            f.noAno(ano).ifPresent(data -> lista.add(new FeriadoDto(f.getId(), data, f.getDescricao(), f.isAnual(), false)));
+        }
         lista.sort(Comparator.comparing(FeriadoDto::data));
         return lista;
     }
@@ -84,14 +94,23 @@ public class ConfiguracaoPontuacaoService {
         if (FeriadosNacionais.doAno(dto.data().getYear()).containsKey(dto.data())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta data já é feriado nacional.");
         }
-        if (feriados.existsByData(dto.data())) {
+        LocalDate data = dto.data();
+        if (dto.anual() && data.getMonthValue() == 2 && data.getDayOfMonth() == 29) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "29 de fevereiro não existe todo ano: cadastre este feriado só para este ano.");
+        }
+        boolean ocupado = dto.anual()
+                ? feriados.conflitaComAnual(data)
+                : feriados.existeEm(data);
+        if (ocupado) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Já existe um feriado cadastrado nesta data.");
         }
         Feriado feriado = new Feriado();
-        feriado.setData(dto.data());
+        feriado.setData(data);
         feriado.setDescricao(dto.descricao().trim());
+        feriado.setAnual(dto.anual());
         Feriado salvo = feriados.save(feriado);
-        return new FeriadoDto(salvo.getId(), salvo.getData(), salvo.getDescricao(), false);
+        return new FeriadoDto(salvo.getId(), salvo.getData(), salvo.getDescricao(), salvo.isAnual(), false);
     }
 
     @Transactional

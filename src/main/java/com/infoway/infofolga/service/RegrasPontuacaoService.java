@@ -32,6 +32,6 @@ public class RegrasPontuacaoService {
 
     @Transactional(readOnly = true)
     public boolean ehFeriado(LocalDate data) {
-        return FeriadosNacionais.doAno(data.getYear()).containsKey(data) || feriados.existsByData(data);
+        return FeriadosNacionais.doAno(data.getYear()).containsKey(data) || feriados.existeEm(data);
     }
 }

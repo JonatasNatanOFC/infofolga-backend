@@ -104,17 +104,52 @@ class ConfiguracaoPontuacaoTest {
     void feriadoDaEmpresaEntraNoCalendarioSoDela() {
         logarComo(CPF_RH_A);
         LocalDate festa = LocalDate.of(HOJE.getYear(), 7, 26);
-        configuracao.adicionarFeriado(new FeriadoDto(null, festa, "Festa da padroeira", false));
+        configuracao.adicionarFeriado(new FeriadoDto(null, festa, "Festa da padroeira", false, false));
 
         assertTrue(regras.ehFeriado(festa));
         assertTrue(configuracao.feriadosDoAno(HOJE.getYear()).stream().anyMatch(f -> f.data().equals(festa) && !f.nacional()));
 
-        var natal = new FeriadoDto(null, LocalDate.of(HOJE.getYear(), 12, 25), "Natal de novo", false);
+        var natal = new FeriadoDto(null, LocalDate.of(HOJE.getYear(), 12, 25), "Natal de novo", false, false);
         var erro = assertThrows(ResponseStatusException.class, () -> configuracao.adicionarFeriado(natal));
         assertEquals(HttpStatus.CONFLICT, erro.getStatusCode());
 
         logarComo(CPF_CEO_B);
         assertFalse(regras.ehFeriado(festa));
+    }
+
+    @Test
+    void feriadoAnualSeRepeteNosAnosSeguintesMasNaoNosAnteriores() {
+        logarComo(CPF_RH_A);
+        int ano = HOJE.getYear();
+        var emancipacao = configuracao.adicionarFeriado(
+                new FeriadoDto(null, LocalDate.of(ano, 12, 10), "Emancipação", true, false));
+
+        assertTrue(regras.ehFeriado(LocalDate.of(ano + 2, 12, 10)));
+        assertFalse(regras.ehFeriado(LocalDate.of(ano - 1, 12, 10)));
+        assertTrue(configuracao.feriadosDoAno(ano + 2).stream()
+                .anyMatch(f -> f.id().equals(emancipacao.id()) && f.data().equals(LocalDate.of(ano + 2, 12, 10)) && f.anual()));
+        assertTrue(configuracao.feriadosDoAno(ano - 1).stream().noneMatch(f -> !f.nacional()));
+
+        // O mesmo dia em outro ano já está coberto pelo anual.
+        var repetido = new FeriadoDto(null, LocalDate.of(ano + 1, 12, 10), "Repetido", false, false);
+        assertEquals(HttpStatus.CONFLICT,
+                assertThrows(ResponseStatusException.class, () -> configuracao.adicionarFeriado(repetido)).getStatusCode());
+
+        var bissexto = new FeriadoDto(null, LocalDate.of(2028, 2, 29), "Bissexto", true, false);
+        assertEquals(HttpStatus.BAD_REQUEST,
+                assertThrows(ResponseStatusException.class, () -> configuracao.adicionarFeriado(bissexto)).getStatusCode());
+
+        configuracao.removerFeriado(emancipacao.id());
+        assertFalse(regras.ehFeriado(LocalDate.of(ano + 2, 12, 10)));
+    }
+
+    @Test
+    void simulacaoUsaAsRegrasDoFormularioSemSalvar() {
+        logarComo(CPF_RH_A);
+        var exemplos = configuracao.simular(regrasPadrao(HOJE, "2"));
+        var domingo = exemplos.stream().filter(e -> e.titulo().equals("Domingo: 4h de plantão")).findFirst().orElseThrow();
+        assertEquals(0, new BigDecimal("8").compareTo(domingo.pontos()));
+        assertTrue(configuracao.historico().isEmpty());
     }
 
     private Colaborador logarComo(String cpf) {
