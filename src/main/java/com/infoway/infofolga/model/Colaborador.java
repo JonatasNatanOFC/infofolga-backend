@@ -56,6 +56,8 @@ public class Colaborador implements UserDetails {
         if (this.role == Role.CEO) {
             return List.of(new SimpleGrantedAuthority("ROLE_CEO"), new SimpleGrantedAuthority("ROLE_GERENTE"),
                     new SimpleGrantedAuthority("ROLE_FUNCIONARIO"));
+        } else if (this.role == Role.RH) {
+            return List.of(new SimpleGrantedAuthority("ROLE_RH"), new SimpleGrantedAuthority("ROLE_FUNCIONARIO"));
         } else if (this.role == Role.GERENTE) {
             return List.of(new SimpleGrantedAuthority("ROLE_GERENTE"), new SimpleGrantedAuthority("ROLE_FUNCIONARIO"));
         } else {

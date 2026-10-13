@@ -43,7 +43,7 @@ public class SolicitacaoController {
     }
 
     @GetMapping("/todas")
-    @PreAuthorize("hasRole('GERENTE') or hasRole('CEO')")
+    @PreAuthorize("hasAnyRole('GERENTE', 'CEO', 'RH')")
     public ResponseEntity<List<SolicitacaoDto>> listarTodas(
             @RequestParam(required = false) List<StatusSolicitation> status,
             @RequestParam(required = false) List<TipoSolicitacao> tipo) {
