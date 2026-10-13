@@ -65,6 +65,10 @@ public class ConfiguracaoPontuacao {
     @Column(name = "politica_sem_saldo", nullable = false)
     private PoliticaSemSaldo politicaSemSaldo = PoliticaSemSaldo.AVISAR;
 
+    /** RH acumula pontos? Não quando é terceirizado; sim quando é funcionário da empresa. */
+    @Column(name = "rh_tem_banco_de_horas", nullable = false)
+    private boolean rhTemBancoDeHoras;
+
     /** Prazo para usar os pontos; null = sem prazo definido. */
     @Column(name = "validade_meses")
     private Integer validadeMeses;

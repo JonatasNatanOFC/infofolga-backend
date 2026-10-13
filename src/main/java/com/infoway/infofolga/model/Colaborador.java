@@ -51,6 +51,14 @@ public class Colaborador implements UserDetails {
     private List<Solicitacao> minhasSolicitacoes;
     private String status;
 
+    /**
+     * Funcionário sempre acumula pontos; CEO e gerente nunca. O RH depende da empresa:
+     * terceirizado fica fora, funcionário da empresa participa.
+     */
+    public boolean temBancoDeHoras(boolean rhParticipa) {
+        return role == Role.FUNCIONARIO || (role == Role.RH && rhParticipa);
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         if (this.role == Role.CEO) {

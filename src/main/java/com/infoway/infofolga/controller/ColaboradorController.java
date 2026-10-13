@@ -7,6 +7,7 @@ import com.infoway.infofolga.dto.UsuarioResumoDto;
 import com.infoway.infofolga.model.Colaborador;
 import com.infoway.infofolga.model.Role;
 import com.infoway.infofolga.service.ColaboradorService;
+import com.infoway.infofolga.service.RegrasPontuacaoService;
 import com.infoway.infofolga.util.FotoUtils;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -23,20 +24,23 @@ import java.util.List;
 public class ColaboradorController {
 
     private final ColaboradorService colaboradorService;
+    private final RegrasPontuacaoService regras;
 
-    ColaboradorController(ColaboradorService colaboradorService) {
+    ColaboradorController(ColaboradorService colaboradorService, RegrasPontuacaoService regras) {
         this.colaboradorService = colaboradorService;
+        this.regras = regras;
     }
 
     @GetMapping("/me")
     public ResponseEntity<UsuarioDto> getMe(@AuthenticationPrincipal Colaborador colaborador) {
-        return ResponseEntity.ok(new UsuarioDto(colaborador));
+        return ResponseEntity.ok(new UsuarioDto(colaborador).comBancoDeHoras(regras.temBancoDeHoras(colaborador)));
     }
 
     @PutMapping("/me")
     public ResponseEntity<UsuarioDto> atualizarMeuPerfil(@AuthenticationPrincipal Colaborador colaborador,
                                                          @RequestBody @Valid AtualizarPerfilDto dto) {
-        return ResponseEntity.ok(colaboradorService.atualizarPerfil(colaborador.getId(), dto));
+        return ResponseEntity.ok(colaboradorService.atualizarPerfil(colaborador.getId(), dto)
+                .comBancoDeHoras(regras.temBancoDeHoras(colaborador)));
     }
 
     @GetMapping

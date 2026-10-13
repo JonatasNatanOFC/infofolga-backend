@@ -13,7 +13,7 @@ import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
 
-/** Saldo e extrato de pontos: cada um vê o seu; CEO e RH veem a equipe toda. */
+/** Saldo e extrato de pontos: o funcionário vê o seu; CEO e RH veem os de todos os funcionários. */
 @RestController
 @RequestMapping("/api/pontos")
 public class PontosController {
@@ -30,7 +30,7 @@ public class PontosController {
     @GetMapping("/meus")
     public ResponseEntity<ExtratoDto> meus(@AuthenticationPrincipal Colaborador logado,
                                            @RequestParam(required = false) YearMonth mes) {
-        return ResponseEntity.ok(service.extrato(logado, mesOuAtual(mes)));
+        return ResponseEntity.ok(service.meuExtrato(logado, mesOuAtual(mes)));
     }
 
     @GetMapping("/equipe")

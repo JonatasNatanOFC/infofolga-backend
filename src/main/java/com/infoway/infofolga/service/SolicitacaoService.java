@@ -29,10 +29,13 @@ public class SolicitacaoService {
 
     private final SolicitacaoRepository solicitacaoRepository;
     private final ColaboradorRepository colaboradorRepository;
+    private final RegrasPontuacaoService regras;
 
-    SolicitacaoService(SolicitacaoRepository solicitacaoRepository, ColaboradorRepository colaboradorRepository) {
+    SolicitacaoService(SolicitacaoRepository solicitacaoRepository, ColaboradorRepository colaboradorRepository,
+                       RegrasPontuacaoService regras) {
         this.solicitacaoRepository = solicitacaoRepository;
         this.colaboradorRepository = colaboradorRepository;
+        this.regras = regras;
     }
 
     private Colaborador getColaboradorAutenticado() {
@@ -115,7 +118,8 @@ public class SolicitacaoService {
         if (dto.tipo() == TipoSolicitacao.FOLGA) {
             MotivoFolga motivo = dto.motivoFolga() != null ? dto.motivoFolga() : MotivoFolga.BANCO_DE_HORAS;
             solicitacao.setMotivoFolga(motivo);
-            solicitacao.setDescontaSaldo(motivo.descontaPorPadrao());
+            // Sem banco de horas (CEO, gerente, RH terceirizado), desconto não se aplica: fica nulo.
+            solicitacao.setDescontaSaldo(regras.temBancoDeHoras(logado) ? motivo.descontaPorPadrao() : null);
         }
 
         solicitacao.setNomeHistorico(logado.getNome());
@@ -131,7 +135,8 @@ public class SolicitacaoService {
     public Solicitacao aprovarSolicitacao(Long idSolicitacao, Long idAvaliador, Boolean descontarSaldo) {
         Solicitacao sol = avaliar(idSolicitacao, idAvaliador, StatusSolicitation.PENDENTE, StatusSolicitation.APROVADA);
         // Quem aprova decide se a folga sai do banco de horas (ex.: day off de aniversário não sai).
-        if (sol.getTipo() == TipoSolicitacao.FOLGA && descontarSaldo != null) {
+        if (sol.getTipo() == TipoSolicitacao.FOLGA && descontarSaldo != null
+                && sol.getColaborador() != null && regras.temBancoDeHoras(sol.getColaborador())) {
             sol.setDescontaSaldo(descontarSaldo);
             return solicitacaoRepository.save(sol);
         }

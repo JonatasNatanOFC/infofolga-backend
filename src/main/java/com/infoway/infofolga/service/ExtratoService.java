@@ -30,14 +30,25 @@ public class ExtratoService {
 
     private final ApuracaoDiaRepository apuracoes;
     private final ColaboradorRepository colaboradores;
+    private final RegrasPontuacaoService regras;
 
-    public ExtratoService(ApuracaoDiaRepository apuracoes, ColaboradorRepository colaboradores) {
+    public ExtratoService(ApuracaoDiaRepository apuracoes, ColaboradorRepository colaboradores,
+                          RegrasPontuacaoService regras) {
         this.apuracoes = apuracoes;
         this.colaboradores = colaboradores;
+        this.regras = regras;
     }
 
+    /** Extrato de quem está logado; perfis sem banco de horas recebem 403. */
     @Transactional(readOnly = true)
-    public ExtratoDto extrato(Colaborador colaborador, YearMonth mes) {
+    public ExtratoDto meuExtrato(Colaborador logado, YearMonth mes) {
+        if (!regras.temBancoDeHoras(logado)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Seu perfil não participa do banco de horas.");
+        }
+        return extrato(logado, mes);
+    }
+
+    private ExtratoDto extrato(Colaborador colaborador, YearMonth mes) {
         List<DiaExtratoDto> dias = apuracoes
                 .findByColaboradorIdAndDataBetweenOrderByDataDesc(colaborador.getId(), mes.atDay(1), mes.atEndOfMonth())
                 .stream().map(DiaExtratoDto::new).toList();
@@ -50,17 +61,19 @@ public class ExtratoService {
     @Transactional(readOnly = true)
     public ExtratoDto extratoDe(Long colaboradorId, YearMonth mes) {
         Colaborador colaborador = colaboradores.findById(colaboradorId)
+                .filter(regras::temBancoDeHoras)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Colaborador não encontrado."));
         return extrato(colaborador, mes);
     }
 
-    /** Todos os colaboradores ativos com o saldo atual, em ordem alfabética. */
+    /** Funcionários ativos com o saldo atual, em ordem alfabética. */
     @Transactional(readOnly = true)
     public List<SaldoColaboradorDto> equipe() {
         Map<Long, ApuracaoDiaRepository.SaldoResumo> saldos = apuracoes.saldosPorColaborador().stream()
                 .collect(Collectors.toMap(ApuracaoDiaRepository.SaldoResumo::getColaboradorId, Function.identity()));
+        boolean rhParticipa = regras.rhParticipaDoBancoDeHoras();
         return colaboradores.findAll().stream()
-                .filter(Colaborador::isEnabled)
+                .filter(c -> c.isEnabled() && c.temBancoDeHoras(rhParticipa))
                 .sorted(Comparator.comparing(Colaborador::getNome, String.CASE_INSENSITIVE_ORDER))
                 .map(c -> {
                     var resumo = saldos.get(c.getId());

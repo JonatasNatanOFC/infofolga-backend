@@ -13,12 +13,18 @@ public record UsuarioDto(
         String setor,
         String foto,
         String status,
-        Role role) {
+        Role role,
+        // Só preenchido no /me: o app usa para mostrar saldo e a opção de folga do banco de horas.
+        Boolean temBancoDeHoras) {
     public UsuarioDto(Colaborador colaborador) {
         this(colaborador.getId(), colaborador.getNome(), colaborador.getCpf(), colaborador.getEmail(),
                 colaborador.getCargo(), colaborador.getSetor(),
                 FotoUtils.url(colaborador.getFoto(), "/api/colaboradores/" + colaborador.getId() + "/foto"),
                 colaborador.getStatus(),
-                colaborador.getRole());
+                colaborador.getRole(), null);
+    }
+
+    public UsuarioDto comBancoDeHoras(boolean tem) {
+        return new UsuarioDto(id, nome, cpf, email, cargo, setor, foto, status, role, tem);
     }
 }

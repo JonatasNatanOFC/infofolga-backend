@@ -163,6 +163,6 @@ class ConfiguracaoPontuacaoTest {
     private static ConfiguracaoPontuacaoDto regrasPadrao(LocalDate inicio, String pesoDomingo) {
         return new ConfiguracaoPontuacaoDto(null, inicio, 480, 480, 480, 480, 480, 240, 0, 10,
                 new BigDecimal(pesoDomingo), BigDecimal.ONE, RegrasPontuacao.HORA_NOTURNA_CLT, false,
-                PoliticaSemSaldo.AVISAR, null, null, null);
+                PoliticaSemSaldo.AVISAR, null, false, null, null);
     }
 }

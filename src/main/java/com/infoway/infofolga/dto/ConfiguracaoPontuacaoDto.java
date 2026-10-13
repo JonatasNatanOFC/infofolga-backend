@@ -33,6 +33,7 @@ public record ConfiguracaoPontuacaoDto(
         @NotNull Boolean compensarFalta,
         @NotNull(message = "Escolha a regra para folga sem saldo.") PoliticaSemSaldo politicaSemSaldo,
         @Min(value = 1, message = "Validade entre 1 e 24 meses.") @Max(value = 24, message = "Validade entre 1 e 24 meses.") Integer validadeMeses,
+        Boolean rhTemBancoDeHoras,
         String alteradoPor,
         LocalDateTime criadoEm) {
 
@@ -40,7 +41,7 @@ public record ConfiguracaoPontuacaoDto(
         this(c.getId(), c.getVigenteDesde(), c.getJornadaSeg(), c.getJornadaTer(), c.getJornadaQua(), c.getJornadaQui(),
                 c.getJornadaSex(), c.getJornadaSab(), c.getJornadaDom(), c.getToleranciaMin(), c.getPesoDomingo(),
                 c.getPesoFeriado(), c.getFatorHoraNoturna(), c.isCompensarFalta(), c.getPoliticaSemSaldo(),
-                c.getValidadeMeses(), nomeDeQuemAlterou, c.getCriadoEm());
+                c.getValidadeMeses(), c.isRhTemBancoDeHoras(), nomeDeQuemAlterou, c.getCriadoEm());
     }
 
     /** Copia as regras para a entidade (não mexe em id, empresa, autor nem data de criação). */
@@ -60,5 +61,7 @@ public record ConfiguracaoPontuacaoDto(
         c.setCompensarFalta(compensarFalta);
         c.setPoliticaSemSaldo(politicaSemSaldo);
         c.setValidadeMeses(validadeMeses);
+        // Ausente (app antigo) = RH fora do banco de horas.
+        c.setRhTemBancoDeHoras(Boolean.TRUE.equals(rhTemBancoDeHoras));
     }
 }

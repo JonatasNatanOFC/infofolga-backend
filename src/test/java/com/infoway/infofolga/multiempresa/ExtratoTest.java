@@ -36,7 +36,7 @@ class ExtratoTest {
 
     private static final String CPF_RH_A = "12345678909";
     private static final String CPF_ANA_A = "98765432100";
-    private static final String CPF_CEO_B = "11122233396";
+    private static final String CPF_FUNC_B = "11122233396";
     private static final YearMonth OUTUBRO = YearMonth.of(2026, 10);
 
     @Autowired private JdbcTemplate jdbc;
@@ -44,25 +44,29 @@ class ExtratoTest {
     @Autowired private ExtratoService extratos;
 
     private long anaA;
-    private long ceoB;
+    private long empresaA;
+    private long funcB;
 
     @BeforeEach
     void criarDuasEmpresasComPontos() {
         jdbc.update("DELETE FROM apuracao_dia");
+        jdbc.update("DELETE FROM configuracao_pontuacao");
         jdbc.update("DELETE FROM colaboradores");
         jdbc.update("DELETE FROM empresas");
         long a = jdbc.queryForObject("INSERT INTO empresas (nome) VALUES ('Empresa A') RETURNING id", Long.class);
+        empresaA = a;
         long b = jdbc.queryForObject("INSERT INTO empresas (nome) VALUES ('Empresa B') RETURNING id", Long.class);
         String sql = "INSERT INTO colaboradores (empresa_id, nome, cpf, email, senha, role, status) VALUES (?, ?, ?, ?, 'x', ?, 'ativo') RETURNING id";
         jdbc.queryForObject(sql, Long.class, a, "RH A", CPF_RH_A, "rh@a.test", "RH");
         anaA = jdbc.queryForObject(sql, Long.class, a, "Ana A", CPF_ANA_A, "ana@a.test", "FUNCIONARIO");
-        ceoB = jdbc.queryForObject(sql, Long.class, b, "CEO B", CPF_CEO_B, "ceo@b.test", "CEO");
+        // Funcionário de outra empresa: tem banco de horas, mas não pode ser visto pela empresa A.
+        funcB = jdbc.queryForObject(sql, Long.class, b, "Func B", CPF_FUNC_B, "func@b.test", "FUNCIONARIO");
 
         dia(a, anaA, "2026-09-30", "2.00", false);
         dia(a, anaA, "2026-10-01", "1.50", false);
         dia(a, anaA, "2026-10-02", "-0.50", false);
         dia(a, anaA, "2026-10-05", "0", true);
-        dia(b, ceoB, "2026-10-01", "8.00", false);
+        dia(b, funcB, "2026-10-01", "8.00", false);
     }
 
     @AfterEach
@@ -73,7 +77,7 @@ class ExtratoTest {
     @Test
     void extratoDoMesTrazSoOsDiasDoMesMasOSaldoAcumulado() {
         Colaborador ana = logarComo(CPF_ANA_A);
-        var extrato = extratos.extrato(ana, OUTUBRO);
+        var extrato = extratos.meuExtrato(ana, OUTUBRO);
 
         assertEquals(3, extrato.dias().size());
         assertEquals("2026-10-05", extrato.dias().get(0).data().toString());
@@ -82,23 +86,49 @@ class ExtratoTest {
     }
 
     @Test
-    void equipeMostraSoAEmpresaDeQuemPede() {
+    void equipeMostraSoOsFuncionariosDaEmpresaDeQuemPede() {
         logarComo(CPF_RH_A);
         var equipe = extratos.equipe();
 
-        assertEquals(2, equipe.size());
-        var ana = equipe.stream().filter(s -> s.colaborador().id() == anaA).findFirst().orElseThrow();
+        // O RH não entra: só funcionário tem banco de horas.
+        assertEquals(1, equipe.size());
+        var ana = equipe.get(0);
+        assertEquals(anaA, ana.colaborador().id());
         assertIgual("3.00", ana.saldo());
         assertEquals(1, ana.diasPendentes());
-        var rh = equipe.stream().filter(s -> !s.colaborador().id().equals(anaA)).findFirst().orElseThrow();
-        assertIgual("0", rh.saldo());
+    }
+
+    @Test
+    void ceoGerenteERhNaoTemBancoDeHoras() {
+        Colaborador rh = logarComo(CPF_RH_A);
+        var erro = assertThrows(ResponseStatusException.class, () -> extratos.meuExtrato(rh, OUTUBRO));
+        assertEquals(HttpStatus.FORBIDDEN, erro.getStatusCode());
+
+        long idRh = rh.getId();
+        var outro = assertThrows(ResponseStatusException.class, () -> extratos.extratoDe(idRh, OUTUBRO));
+        assertEquals(HttpStatus.NOT_FOUND, outro.getStatusCode());
     }
 
     @Test
     void naoAbreOExtratoDeOutraEmpresa() {
         logarComo(CPF_RH_A);
-        var erro = assertThrows(ResponseStatusException.class, () -> extratos.extratoDe(ceoB, OUTUBRO));
+        var erro = assertThrows(ResponseStatusException.class, () -> extratos.extratoDe(funcB, OUTUBRO));
         assertEquals(HttpStatus.NOT_FOUND, erro.getStatusCode());
+    }
+
+    @Test
+    void rhParticipaQuandoAEmpresaLigaAOpcao() {
+        // Empresa A tem o RH como funcionário (na Infoway ele é terceirizado e fica fora).
+        jdbc.update("""
+                INSERT INTO configuracao_pontuacao (empresa_id, vigente_desde, jornada_seg, jornada_ter, jornada_qua,
+                    jornada_qui, jornada_sex, jornada_sab, jornada_dom, tolerancia_min, peso_domingo, peso_feriado,
+                    fator_hora_noturna, compensar_falta, politica_sem_saldo, rh_tem_banco_de_horas, criado_em)
+                VALUES (?, '2020-01-01', 480, 480, 480, 480, 480, 240, 0, 10, 1, 1, 1.142857142857, false, 'AVISAR', true, NOW())
+                """, empresaA);
+        Colaborador rh = logarComo(CPF_RH_A);
+
+        assertIgual("0", extratos.meuExtrato(rh, OUTUBRO).saldo());
+        assertEquals(2, extratos.equipe().size());
     }
 
     private void dia(long empresa, long colaborador, String data, String pontos, boolean inconsistente) {

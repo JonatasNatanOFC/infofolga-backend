@@ -8,12 +8,17 @@ import com.infoway.infofolga.repository.FeriadoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.infoway.infofolga.model.Colaborador;
+
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Optional;
 
 /** Regras e calendário da empresa do usuário atual (filtrados pelo @TenantId). */
 @Service
 public class RegrasPontuacaoService {
+
+    private static final ZoneId FUSO = ZoneId.of("America/Sao_Paulo");
 
     private final ConfiguracaoPontuacaoRepository configuracoes;
     private final FeriadoRepository feriados;
@@ -28,6 +33,18 @@ public class RegrasPontuacaoService {
     public Optional<RegrasPontuacao> regrasEm(LocalDate data) {
         return configuracoes.findFirstByVigenteDesdeLessThanEqualOrderByVigenteDesdeDesc(data)
                 .map(ConfiguracaoPontuacao::paraRegras);
+    }
+
+    /** Se o RH da empresa participa do banco de horas, pelas regras em vigor hoje. */
+    @Transactional(readOnly = true)
+    public boolean rhParticipaDoBancoDeHoras() {
+        return configuracoes.findFirstByVigenteDesdeLessThanEqualOrderByVigenteDesdeDesc(LocalDate.now(FUSO))
+                .map(ConfiguracaoPontuacao::isRhTemBancoDeHoras)
+                .orElse(false);
+    }
+
+    public boolean temBancoDeHoras(Colaborador colaborador) {
+        return colaborador.temBancoDeHoras(rhParticipaDoBancoDeHoras());
     }
 
     @Transactional(readOnly = true)
