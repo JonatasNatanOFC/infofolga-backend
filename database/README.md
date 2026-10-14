@@ -1,163 +1,74 @@
-# Database — InfoFolga
+# Banco de dados
 
-## Arquivo de schema
+PostgreSQL 16. O schema é criado e alterado **só por scripts SQL** desta pasta. A API sobe com `SPRING_JPA_HIBERNATE_DDL_AUTO=validate`: se o schema real divergir das entidades JPA, ela se recusa a iniciar (`SchemaManagementException`) em vez de mexer no banco.
 
-**`V1__schema_inicial.sql`** — Schema inicial de produção.
+## Migrations
 
-Reproduz exatamente o mapeamento JPA (Colaborador, Solicitacao). Compatível com `SPRING_JPA_HIBERNATE_DDL_AUTO=validate`.
+Rodar em ordem, uma única vez cada, com a API parada e depois de um backup.
 
-## Como executar em um banco PostgreSQL vazio
+| Script | O que faz |
+|---|---|
+| `V1__schema_inicial.sql` | Tabelas `colaboradores` e `solicitacoes`, com índices |
+| `V2__multiempresa.sql` | Tabela `empresas` e `empresa_id` em colaboradores e solicitações. Os dados existentes passam a ser da empresa 1 (Infoway). Roda numa transação: se algo falhar, nada muda |
+| `V3__pontuacao.sql` | `configuracao_pontuacao`, `feriados`, `apuracao_dia`; motivo da folga e `desconta_saldo` nas solicitações |
+| `V4__feriado_anual.sql` | Feriado que se repete todo ano (`feriados.anual`) |
+| `V5__rh_banco_de_horas.sql` | Se o RH da empresa acumula pontos (`rh_tem_banco_de_horas`) |
+| `V6__batidas_e_ajustes.sql` | `batidas` (marcações brutas do ponto) e `ajustes_saldo` (ajustes manuais) |
+| `V7__saldo_no_pedido.sql` | `saldo_no_pedido` e `pontos_da_folga` nas solicitações |
 
-### Pré-requisito
-
-O banco deve estar vazio ou sem tabelas do InfoFolga. Em produção, nunca re-executar este script em um banco com dados.
-
-### Execução
-
-```bash
-# Via psql com banco rodando em container
-docker compose --env-file .env.production -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga < database/V1__schema_inicial.sql
-
-# OU, local contra banco em container
-psql -h localhost -p 5441 -U infofolga -d infofolga < database/V1__schema_inicial.sql
-
-# OU, direto no container via COPY (stdin)
-cat database/V1__schema_inicial.sql | docker compose --env-file .env.production -f docker-compose.prod.yml exec -T banco psql -U infofolga -d infofolga
-```
-
-### Validar execução
+Para aplicar uma migration no servidor (a partir de `/home/ubuntu/infofolga`):
 
 ```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga -c "
-SELECT table_name FROM information_schema.tables 
-WHERE table_schema = 'public' ORDER BY table_name;
-"
-
-# Saída esperada:
-# colaboradores
-# solicitacoes
+cat database/V7__saldo_no_pedido.sql | docker compose --env-file .env.production -f docker-compose.prod.yml \
+  exec -T banco psql -U infofolga -d infofolga -v ON_ERROR_STOP=1
 ```
 
-Inspecionar schema de uma tabela:
+`ON_ERROR_STOP=1` faz o `psql` parar no primeiro erro em vez de seguir executando o resto do script.
+
+### Criar uma migration nova
+
+1. Crie `V8__descricao.sql` com o comentário do que faz e por quê no topo.
+2. Altere a entidade JPA no mesmo commit.
+3. Rode `./mvnw test`. Atenção: os testes de integração criam o schema **a partir das entidades** (`create-drop`), não dos scripts. Eles provam que o código funciona, não que o script está certo.
+4. Teste o script num banco local com `ddl-auto=validate`: se a API subir, o script bate com as entidades.
+5. Em produção: backup, aplique o script, depois suba a API nova.
+
+## Banco novo, do zero
 
 ```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga -c "\d colaboradores"
+for f in database/V*.sql; do
+  cat "$f" | docker compose --env-file .env.production -f docker-compose.prod.yml \
+    exec -T banco psql -U infofolga -d infofolga -v ON_ERROR_STOP=1 || break
+done
 ```
 
-## Como iniciar a API com `ddl-auto=validate`
+A V2 já cria a Infoway como empresa 1. Para outra empresa, crie a empresa e o primeiro CEO:
 
-1. **Garantir que o script SQL foi executado:**
+```sql
+BEGIN;
+INSERT INTO empresas (nome) VALUES ('Nome da Empresa');
+INSERT INTO colaboradores (empresa_id, nome, cpf, email, senha, cargo, setor, role, status)
+SELECT id, 'Nome do CEO', '00000000000', 'ceo@empresa.com', '<hash-bcrypt>', 'Diretor', 'Administração', 'CEO', 'ativo'
+FROM empresas WHERE nome = 'Nome da Empresa';
+COMMIT;
+```
+
+- CPF só com números.
+- Gere o hash BCrypt na sua máquina, nunca num site: `htpasswd -bnBC 10 "" 'senha' | tr -d ':\n'`.
+- O logo da empresa (`empresas.logo` e `logo_relatorio`) é um data URI base64 e é opcional.
+
+Daí em diante o CEO cadastra os demais colaboradores pelo app.
+
+## Conferir o schema
 
 ```bash
-# Rodar script
-docker compose --env-file .env.production -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga < database/V1__schema_inicial.sql
+docker compose --env-file .env.production -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga -c "\dt"
 ```
 
-2. **Verificar `.env.production`:**
+Tabelas esperadas: `ajustes_saldo`, `apuracao_dia`, `batidas`, `colaboradores`, `configuracao_pontuacao`, `empresas`, `feriados`, `solicitacoes`.
 
-```bash
-# .env.production deve ter:
-SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-SPRING_PROFILES_ACTIVE=prod
-```
+## Backup e restauração
 
-3. **Subir a API:**
+Ver [DEPLOYMENT.md](../DEPLOYMENT.md#backup).
 
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d api
-
-# Monitorar logs
-docker compose --env-file .env.production -f docker-compose.prod.yml logs -f api
-```
-
-4. **Verificar startup:**
-
-Se não houver erros, logs mostrarão:
-
-```
-... Tomcat started on port 8080
-... Started InfofolgaApiApplication
-```
-
-## Erros esperados do Hibernate se houver divergência
-
-Se o schema não corresponder ao mapeamento JPA, o Hibernate lançará `SchemaManagementException` na inicialização:
-
-**Coluna faltando:**
-```
-ERROR: table "solicitacoes" has no column named "data_inicio"
-SchemaManagementException: Schema validation: missing column [data_inicio] in table [solicitacoes]
-```
-
-**Coluna com tipo errado:**
-```
-ERROR: column "criado_em" is of type timestamp without time zone but should be timestamp without time zone
-SchemaManagementException: Schema validation: wrong column type [criado_em] in table [solicitacoes]
-```
-
-**Constraint (NOT NULL) divergente:**
-```
-ERROR: column "tipo" is nullable but should not be
-SchemaManagementException: Schema validation: column [tipo] in table [solicitacoes] has NOT NULL constraint but column has no NOT NULL
-```
-
-**FK faltando:**
-```
-ERROR: no constraint named "fk_colaborador" in table "solicitacoes"
-SchemaManagementException: Schema validation: constraint [fk_colaborador] missing in table [solicitacoes]
-```
-
-Nesses casos, **PARE e não avance**. Verifique:
-- Se o script foi executado completamente
-- Se não houve DROP/DELETE de tabelas entre execução do script e startup da API
-- Se as entidades JPA foram alteradas depois da criação deste script
-
-## Inserir primeiro CEO
-
-Após validar que a API subiu com sucesso:
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga
-
--- No psql:
--- Gerar hash BCrypt de uma senha (ex: "senha123"):
--- Use https://bcrypt.online ou:
--- echo -n "senha123" | htpasswd -bnBC 10 "" | tr -d ':\n'
-
-INSERT INTO colaboradores (nome, cpf, email, senha, cargo, setor, role, status)
-VALUES ('CEO Inicial', '00000000001', 'ceo@empresa.com', '$2a$10$YOUR_BCRYPT_HASH_HERE', 'CEO', 'Administração', 'CEO', 'ativo');
-```
-
-## Divergências encontradas
-
-**Nenhuma.** O arquivo `V1__schema_inicial.sql` corresponde exatamente ao mapeamento das entidades JPA:
-
-- Nomes de tabelas e colunas conferem (camelCase JPA → snake_case SQL)
-- Tipos de dados: String → VARCHAR(255), LocalDate → DATE, LocalDateTime → TIMESTAMP, Long → BIGINT, Enums → VARCHAR
-- Constraints: UNIQUE em cpf e email, NOT NULL em tipo, status, data_inicio, data_fim, criado_em, versao
-- Foreign Keys: colaborador_id e aprovador_id → colaboradores(id)
-- Índices: adicionados nas FKs e colunas frequentemente filtradas (status, tipo, data_inicio, data_fim, atualizado_em)
-
-## Próximos passos
-
-1. Executar `V1__schema_inicial.sql` no banco vazio (antes de subir a API)
-2. Verificar schema com `\d` no psql
-3. Subir a API com `docker compose --env-file .env.production -f docker-compose.prod.yml up -d`
-4. Monitorar logs para erros de SchemaManagementException
-5. Se OK, inserir primeiro CEO manualmente via SQL
-6. Testar login via curl/Postman
-7. Proceder para nginx + SSL (próxima etapa)
-
-## Plano futuro
-
-**V1 é o schema inicial de produção.** Quando o schema precisar evoluir:
-
-1. **Criar migration versionada:** `V2__adicionar_coluna_x.sql`, `V3__renomear_tabela.sql`, etc.
-2. **Workflow de migrations:**
-   - Criar arquivo `database/V<N>__<descricao>.sql` com alterações
-   - Testar em banco de desenvolvimento
-   - Executar manualmente em produção **antes** de subir a API com novas entidades JPA
-   - Verificar que `SPRING_JPA_HIBERNATE_DDL_AUTO=validate` ainda passa sem erros
-3. **Ferramentas recomendadas no futuro:** quando múltiplas migrations acumularem, adotar **Flyway** para orquestração automática de migrations versionadas.
-
-**Por agora (primeiro deploy):** schema V1 é suficiente. Migrations serão adicionadas conforme o projeto evoluir.
+> `SCHEMA_MAPPING.md` descreve o mapeamento campo a campo das tabelas da V1. Para as tabelas criadas depois, os próprios scripts são a referência.

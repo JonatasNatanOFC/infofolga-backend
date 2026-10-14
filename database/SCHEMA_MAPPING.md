@@ -1,5 +1,7 @@
 # Mapeamento JPA → SQL
 
+> Cobre as tabelas da V1 (`colaboradores` e `solicitacoes`). As tabelas e colunas das migrations V2 a V7 estão descritas nos próprios scripts e em [README.md](README.md).
+
 Documento técnico: campo por campo, cada entidade JPA mapeada para SQL.
 
 ## Entidade: Colaborador

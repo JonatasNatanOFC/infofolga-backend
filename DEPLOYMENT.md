@@ -1,348 +1,166 @@
-# Deploy em Produção — InfoFolga API
+# Deploy em produção
 
-## Visão geral
+Como o InfoFolga roda hoje e como atualizar sem perder dados.
 
-Deployment via Docker Compose usando `docker-compose.prod.yml`. Presupõe nginx como reverse proxy (SSL/TLS) em execução no host, roteando para a API em `http://127.0.0.1:8080`.
+## Como está montado
 
-## Pré-requisitos
+```
+Internet ──HTTPS──► nginx (EC2) ──┬── /        → app web (arquivos em /var/www/infofolga)
+                                  └── /api/... → API (Docker, 127.0.0.1:8080) ──► PostgreSQL (Docker, 127.0.0.1:5441)
+                                                                                         │
+                                                                    backup diário ───────┴──► S3
+```
 
-1. **Domínio registrado** com A record apontando para IP do servidor
-2. **nginx instalado no host** com configuração de proxy reverso
-3. **Let's Encrypt SSL** (via Certbot) — configurado no nginx
-4. **Docker Engine + Compose plugin** — `docker compose --version` funciona
-5. **Script SQL de schema** — `database/V1__schema_inicial.sql` será executado no banco vazio
-6. **Primeiro usuário CEO** — será inserido manualmente no banco via SQL
+| Peça | Onde |
+|---|---|
+| Servidor | AWS EC2 (Ubuntu), projeto em `/home/ubuntu/infofolga` |
+| Domínio | `3-13-86-161.sslip.io` (provisório), certificado Let's Encrypt |
+| API e banco | `docker-compose.prod.yml`, segredos em `.env.production` (só no servidor) |
+| App web | Arquivos estáticos em `/var/www/infofolga` |
+| Backup | `scripts/backup-infofolga.sh`, todo dia, para o S3 |
 
-## Preparar ambiente
+A porta 22 fica fechada. O acesso ao servidor é pelo console da AWS.
 
-### 1. Copiar template de env
+## Atualizar a API
 
 ```bash
-cp .env.production.example .env.production
+cd /home/ubuntu/infofolga
+git pull
+
+# só se o commit trouxe migration nova (ver database/README.md)
+sudo /usr/local/bin/backup-infofolga.sh   # backup na hora, antes de mexer no schema
+cat database/V8__exemplo.sql | docker compose --env-file .env.production -f docker-compose.prod.yml \
+  exec -T banco psql -U infofolga -d infofolga -v ON_ERROR_STOP=1
+
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build api
+docker compose --env-file .env.production -f docker-compose.prod.yml logs -f api
 ```
 
-### 2. Preencher .env.production com valores reais
+Espere `Started InfofolgaApiApplication`. Se aparecer `SchemaManagementException`, falta aplicar uma migration: a API não sobe com schema divergente, então os dados não correm risco.
+
+**Ordem importa:** migration primeiro, API depois. As migrations só acrescentam tabelas e colunas, então a API antiga continua funcionando com o schema novo durante a troca.
+
+## Atualizar o app web
+
+Na sua máquina, no repositório do app:
 
 ```bash
-# Editar .env.production e substituir placeholders:
-nano .env.production
+npx expo export -p web --output-dir dist
+tar -czf infofolga-web.tar.gz -C dist .
 ```
 
-**Gerar senhas fortes:**
+Envie `infofolga-web.tar.gz` para a pasta `web/` do bucket de backup pelo console do S3. No servidor:
 
 ```bash
-# PostgreSQL password
-openssl rand -base64 32
-
-# JWT secret
-openssl rand -base64 32
+aws s3 cp s3://infofolga-teste-backup-549047257997/web/infofolga-web.tar.gz /tmp/
+sudo tar -xzf /tmp/infofolga-web.tar.gz -C /var/www/infofolga
 ```
 
-**Verificar que .env.production contém:**
+Para conferir se a versão nova está no ar, compare o hash do bundle em `/var/www/infofolga/index.html` com o de `dist/index.html`. Se o navegador mostrar a versão antiga, recarregue com Ctrl+Shift+R.
 
-```
-PORT=8080
-POSTGRES_DB=infofolga
-POSTGRES_USER=infofolga
-POSTGRES_PASSWORD=<senha_forte_gerada_com_openssl>
-SPRING_DATASOURCE_URL=jdbc:postgresql://banco:5432/infofolga
-SPRING_DATASOURCE_USERNAME=infofolga
-SPRING_DATASOURCE_PASSWORD=<senha_forte_gerada_com_openssl>
-SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-JWT_SECRET=<secret_forte_gerado_com_openssl>
-API_BIND=127.0.0.1
-SPRING_PROFILES_ACTIVE=prod
-```
+## Primeira instalação
 
-**NUNCA commit .env.production. Está no .gitignore.**
+1. Instale Docker, nginx e certbot no servidor e clone o repositório em `/home/ubuntu/infofolga`.
+2. Copie `.env.production.example` para `.env.production` e preencha. Gere senha e segredo com `openssl rand -base64 32`. Mantenha `SPRING_JPA_HIBERNATE_DDL_AUTO=validate` e `API_BIND=127.0.0.1`.
+3. Suba só o banco e espere ficar `healthy`:
+   ```bash
+   docker compose --env-file .env.production -f docker-compose.prod.yml up -d banco
+   docker compose --env-file .env.production -f docker-compose.prod.yml ps banco
+   ```
+4. Rode as migrations V1 a V7 e crie a empresa e o primeiro CEO ([database/README.md](database/README.md#banco-novo-do-zero)).
+5. Suba a API: `docker compose --env-file .env.production -f docker-compose.prod.yml up -d api`.
+6. Configure o nginx (abaixo) e o certificado (`certbot --nginx -d seu.dominio`).
+7. Publique o app web e instale o backup (abaixo).
 
-### 3. Configurar nginx (no host)
+### nginx
 
-Criar `/etc/nginx/sites-available/infofolga-api`:
+Modelo da configuração. Antes de mudar o servidor, compare com o arquivo em uso (`/etc/nginx/sites-enabled/`).
 
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name api.seudominio.com;
+    server_name seu.dominio;
+    # ssl_certificate e ssl_certificate_key: preenchidos pelo certbot
 
-    ssl_certificate /etc/letsencrypt/live/api.seudominio.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/api.seudominio.com/privkey.pem;
+    root /var/www/infofolga;
+    index index.html;
+    client_max_body_size 20m;   # mesmo limite de upload da API (AFD)
 
-    location / {
+    location /api/ {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $remote_addr;  # sobrescreve: o rate limiter usa o primeiro valor
+        proxy_set_header X-Forwarded-For $remote_addr;   # sobrescreve: o rate limit usa o primeiro valor
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 30s;
+        proxy_read_timeout 60s;
+    }
+
+    # o app é uma SPA: qualquer rota que não seja arquivo devolve o index.html
+    location / {
+        try_files $uri $uri/ /index.html;
     }
 }
 
 server {
     listen 80;
-    server_name api.seudominio.com;
+    server_name seu.dominio;
     return 301 https://$host$request_uri;
 }
 ```
 
-Habilitar e recarregar:
-
-```bash
-ln -s /etc/nginx/sites-available/infofolga-api /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
-```
-
-### 4. Preparar banco de dados
-
-**Ordem obrigatória de execução:**
-
-1. Banco PostgreSQL deve estar vazio
-2. Executar `database/V1__schema_inicial.sql` (uma única vez)
-3. Validar schema
-4. Subir API com `SPRING_JPA_HIBERNATE_DDL_AUTO=validate`
-
-**Passo 1: Subir apenas o banco (sem a API)**
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d banco
-```
-
-Aguardar healthcheck passar (retorna "healthy"):
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml ps banco
-```
-
-**Passo 2: Executar script SQL inicial no banco vazio**
-
-```bash
-cat database/V1__schema_inicial.sql | docker compose --env-file .env.production -f docker-compose.prod.yml exec -T banco psql -U infofolga -d infofolga
-```
-
-Não deve haver erros.
-
-**Passo 3: Validar que as tabelas foram criadas**
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga -c "\dt"
-```
-
-Saída esperada:
-
-```
-                List of relations
- Schema |     Name      | Type  |    Owner
---------+---------------+-------+----------
- public | colaboradores | table | infofolga
- public | solicitacoes  | table | infofolga
-(2 rows)
-```
-
-Verificar índices:
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga -c "\di"
-```
-
-Devem estar presentes: `idx_solicitacoes_colaborador_id`, `idx_solicitacoes_aprovador_id`, `idx_solicitacoes_status`, `idx_solicitacoes_tipo_status`, `idx_solicitacoes_data_inicio_data_fim`, `idx_solicitacoes_atualizado_em`.
-
-**Passo 4: Subir a API**
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d api
-```
-
-**Passo 5: Monitorar logs da API**
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml logs -f api
-```
-
-Aguardar mensagem como:
-
-```
-Started InfofolgaApiApplication in X.XX seconds
-```
-
-**Crítico:** Nenhuma mensagem `SchemaManagementException` deve aparecer. Se aparecer, o schema real diverge do mapeamento JPA — PARE e não prossiga.
-
-**Passo 6: Testar conectividade da API**
-
-```bash
-curl -I https://api.seudominio.com/api/auth
-```
-
-Deve responder com `200` ou `401` (esperado, sem token).
-
-**Passo 7: Inserir primeiro CEO no banco**
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml exec banco psql -U infofolga -d infofolga -c "
-INSERT INTO colaboradores (nome, cpf, email, senha, cargo, setor, role, status)
-VALUES ('CEO Inicial', '00000000001', 'ceo@empresa.com', '\$2a\$10\$HASH_BCRYPT_AQUI', 'CEO', 'Administração', 'CEO', 'ativo');
-"
-```
-
-**A senha deve ser um hash BCrypt válido gerado de forma segura no seu ambiente.** Não use serviços online para gerar senhas de produção.
-
-Para gerar o hash localmente em Java:
-
-```bash
-# Em um projeto Java com Spring Security, use:
-# org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder encoder = new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
-# System.out.println(encoder.encode("sua_senha_segura"));
-```
-
-Ou via Linux com ferramentas adequadas para seu ambiente.
-
-**Passo 8: Testar login**
-
-```bash
-curl -X POST https://api.seudominio.com/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"cpf":"00000000001","senha":"sua_senha_aqui"}'
-```
-
-Deve retornar um token JWT.
-
-## Deploy
-
-### Primeiro deploy (com build local)
-
-**Pré-requisitos verificados:**
-- ✅ `.env.production` preenchido com valores reais
-- ✅ Schema SQL já executado (`database/V1__schema_inicial.sql`)
-- ✅ nginx configurado e rodando com SSL
-- ✅ `SPRING_JPA_HIBERNATE_DDL_AUTO=validate` em `.env.production`
-- ✅ Banco PostgreSQL subido e saudável
-- ✅ Primeiro CEO inserido no banco
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d
-docker compose --env-file .env.production -f docker-compose.prod.yml logs -f api
-```
-
-Aguardar `Started InfofolgaApiApplication in X.XX seconds`. Nenhuma `SchemaManagementException`.
-
-### Deploys subsequentes (atualizar código)
-
-Rebuild e reiniciar:
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
-docker compose --env-file .env.production -f docker-compose.prod.yml logs -f api
-```
-
-Ou, se usando imagem pré-built de um registry:
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml down
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d
-docker compose --env-file .env.production -f docker-compose.prod.yml logs -f api
-```
-
-**Importante:** O Hibernate permanecerá com `SPRING_JPA_HIBERNATE_DDL_AUTO=validate`. Se o código incluir alterações de schema JPA (novas entidades, mudança de tipos, constraints), a API falhará no startup com `SchemaManagementException`.
-
-Nesse caso:
-1. Crie um novo script SQL (ex: `database/V2__alteracao.sql`) com a alteração de schema
-2. Execute o script manualmente no banco em produção
-3. Faça o deploy do código novo
-
-## Validação pós-deploy
-
-Verificar status dos containers:
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml ps
-```
-
-Todos devem estar em `Up`.
-
-Verificar saúde do banco:
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml exec banco pg_isready -U infofolga
-```
-
-Resultado esperado: `/var/run/postgresql:5432 - accepting connections`
-
-Monitorar logs:
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml logs -f
-```
+`X-Forwarded-For $remote_addr` precisa **sobrescrever** o cabeçalho, nunca acrescentar (`$proxy_add_x_forwarded_for`). Senão o cliente escolhe o IP que o rate limit enxerga.
 
 ## Backup
 
-Agendar `pg_dump` diário:
+`scripts/backup-infofolga.sh` faz `pg_dump`, compacta e envia para o S3. Instalação no servidor:
 
 ```bash
-# /usr/local/bin/backup-infofolga.sh
-#!/bin/bash
-docker compose -f /path/to/docker-compose.prod.yml exec -T banco \
-  pg_dump -U infofolga infofolga \
-  | gzip > /backups/infofolga_$(date +\%Y\%m\%d).sql.gz
-
-# Validar backup
-gzip -t /backups/infofolga_$(date +\%Y\%m\%d).sql.gz && echo "OK" || echo "FALHA"
+sudo cp scripts/backup-infofolga.sh /usr/local/bin/
+sudo chmod +x /usr/local/bin/backup-infofolga.sh
+echo '0 5 * * * ubuntu /usr/local/bin/backup-infofolga.sh' | sudo tee /etc/cron.d/infofolga-backup
 ```
 
-Adicionar ao crontab:
+O horário do cron é UTC: no exemplo, 5h UTC = 2h em Brasília. Confira o agendamento real com `cat /etc/cron.d/infofolga-backup`.
+
+### Restaurar
+
+Teste a restauração de vez em quando num banco de teste. Um backup que nunca foi restaurado não está provado.
 
 ```bash
-0 2 * * * /usr/local/bin/backup-infofolga.sh
+aws s3 cp s3://infofolga-teste-backup-549047257997/infofolga-AAAA-MM-DD.sql.gz /tmp/
+gunzip -c /tmp/infofolga-AAAA-MM-DD.sql.gz | docker compose --env-file .env.production -f docker-compose.prod.yml \
+  exec -T banco psql -U infofolga -d infofolga -v ON_ERROR_STOP=1
 ```
 
-Testar restore periodicamente em banco de teste.
+Restaure sobre um banco **vazio** (o dump recria as tabelas). Para restaurar em produção: pare a API, renomeie ou apague o banco atual, crie um vazio e restaure.
 
-## Rollback
+## Voltar uma versão
 
-Se um deploy quebrou a aplicação:
+Se a API nova quebrou e **não houve migration**:
 
 ```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml down
-# Remover imagem antiga se necessário
-docker image rm <seu-registry>/infofolga-api:latest
-# Subir novamente (Docker puxará a imagem anterior ou rebuild)
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d
-docker compose --env-file .env.production -f docker-compose.prod.yml logs -f api
+git log --oneline -5
+git checkout <commit-anterior>
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build api
+git checkout master   # depois de corrigir
 ```
 
-Se o schema foi alterado e precisa de rollback:
+Se houve migration, a API antiga normalmente continua funcionando (as migrations só acrescentam). Se não funcionar, restaure o backup feito antes da migration.
 
-```bash
-# Restaurar banco de um backup
-gzip -d < /backups/infofolga_20260101.sql.gz | \
-  docker compose --env-file .env.production -f docker-compose.prod.yml exec -T banco \
-    psql -U infofolga infofolga
-```
+## Problemas comuns
 
-## Troubleshooting
+| Sintoma | Causa provável | O que fazer |
+|---|---|---|
+| API não sobe, `SchemaManagementException` | Migration não aplicada | Aplicar o script que falta e subir de novo |
+| API não sobe, `JWT_SECRET ausente ou fraco` | Segredo com menos de 32 bytes | `openssl rand -base64 32` e atualizar `.env.production` |
+| `502 Bad Gateway` | API parada | `docker compose ... ps` e `logs api` |
+| Importar AFD dá `413` | Limite do nginx | Conferir `client_max_body_size 20m` |
+| App mostra versão antiga | Cache do navegador ou tar não extraído | Comparar o hash em `index.html`, Ctrl+Shift+R |
+| Erro de CORS no navegador | Faltou `SERVER_FORWARD_HEADERS_STRATEGY: native` | Já está no `docker-compose.prod.yml`; conferir se não foi removido |
 
-**API não responde via nginx**
-- `curl -v http://127.0.0.1:8080/error` — verificar se API está respondendo localmente
-- `nginx -t` — validar configuração nginx
-- `docker compose --env-file .env.production -f docker-compose.prod.yml logs api` — verificar erro de startup
+## Nunca
 
-**Banco não inicia**
-- `docker compose --env-file .env.production -f docker-compose.prod.yml logs banco` — erros de PostgreSQL
-- `docker compose --env-file .env.production -f docker-compose.prod.yml ps banco` — verificar se healthcheck passa
-
-**Erro SchemaManagementException ao subir API**
-- Schema real diverge do mapeamento JPA
-- Verificar: `docker compose --env-file .env.production -f docker-compose.prod.yml logs api | grep -iE "schema|diverge"`
-- Solução: executar migration SQL (ex: `V2__...sql`) manualmente, depois redeploy código
-
-**Conexão recusada na porta 8080**
-- `docker compose --env-file .env.production -f docker-compose.prod.yml exec api netstat -tulpn | grep 8080` — verificar porta
-- `docker compose --env-file .env.production -f docker-compose.prod.yml ps api` — verificar se container está UP
-
-**JWT_SECRET inválido**
-- JWT_SECRET deve ter mínimo 32 bytes
-- Gerar novamente: `openssl rand -base64 32`
-- Alterar em `.env.production` e fazer redeploy
-
-**Banco está cheio**
-- `docker compose --env-file .env.production -f docker-compose.prod.yml exec banco du -h /var/lib/postgresql/data`
-- Limpar backups antigos de `/backups/`
-- Se necessário, vacuum no PostgreSQL: `docker compose --env-file .env.production -f docker-compose.prod.yml exec banco vacuumdb -U infofolga infofolga`
+- Commitar `.env.production` ou colar seu conteúdo em chat, issue ou print.
+- Abrir a porta 22 ou a 5441 para a internet.
+- Rodar a API com `ddl-auto=update` em produção.
+- Aplicar migration sem backup.
