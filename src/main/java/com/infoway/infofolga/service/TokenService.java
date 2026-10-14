@@ -17,7 +17,9 @@ import java.time.Instant;
 public class TokenService {
 
     private static final String ISSUER = "API infofolga";
-    private static final Duration VALIDADE = Duration.ofHours(2);
+    // Sessão deslizante: o app renova o token ao abrir, então só desloga quem fica 7 dias sem usar.
+    // Inativar o colaborador corta o acesso na hora (o SecurityFilter confere a cada requisição).
+    private static final Duration VALIDADE = Duration.ofDays(7);
     private static final int TAMANHO_MINIMO_SECRET = 32;
 
     private final Algorithm algoritmo;
